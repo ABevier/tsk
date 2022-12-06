@@ -8,7 +8,6 @@ import (
 
 //TODO:
 // - is there a better way to return results??
-// - context cancellation
 // - configuration
 // - comments
 
@@ -53,8 +52,14 @@ func (be *BatchExecutor[T, R]) Submit(ctx context.Context, item T) (R, error) {
 	resultChan := make(chan Result[R])
 	be.addItem(item, resultChan)
 
-	res := <-resultChan
-	return res.Val, res.Err
+	select {
+	case res := <-resultChan:
+		return res.Val, res.Err
+
+	case <-ctx.Done():
+		var noop R
+		return noop, context.Canceled
+	}
 }
 
 func (be *BatchExecutor[T, R]) addItem(item T, resultChan chan<- Result[R]) {

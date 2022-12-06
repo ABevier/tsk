@@ -74,3 +74,5 @@ func TestBatchFailure(t *testing.T) {
 
 	wg.Wait()
 }
+
+//TODO: test for cancellation
