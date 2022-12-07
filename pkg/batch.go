@@ -1,4 +1,4 @@
-package tasks
+package tsk
 
 import (
 	"context"
@@ -7,10 +7,16 @@ import (
 )
 
 //TODO:
+// Batching:
 // - configuration
 // - comments
 // - readme
 // - examples: SQS, SQL
+// - server context to shutdown the BatchExecutor
+// ---------
+// Worker Queue (control max concurrency):
+// - initial implementation
+// - backpressure?
 
 type ExecuteFunction[T any, R any] func(items []T) ([]Result[R], error)
 
@@ -34,13 +40,13 @@ type BatchExecutor[T any, R any] struct {
 	maxLinger    time.Duration
 }
 
-func NewBatchExecutor[T any, R any](maxSize int, maxLinger time.Duration, execute ExecuteFunction[T, R]) *BatchExecutor[T, R] {
+func NewBatchExecutor[T any, R any](execute ExecuteFunction[T, R], opts BatchOpts) *BatchExecutor[T, R] {
 	return &BatchExecutor[T, R]{
 		m:           &sync.Mutex{},
 		sequenceNum: 0,
 		execute:     execute,
-		maxSize:     maxSize,
-		maxLinger:   maxLinger,
+		maxSize:     opts.MaxSize,
+		maxLinger:   opts.MaxLinger,
 	}
 }
 

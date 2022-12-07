@@ -1,4 +1,4 @@
-package tasks
+package tsk
 
 type Result[T any] struct {
 	Val T
