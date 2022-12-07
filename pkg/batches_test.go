@@ -26,7 +26,7 @@ func TestBatch(t *testing.T) {
 		var results []Result[int]
 
 		for _, n := range items {
-			r := Result[int]{Val: n * 2}
+			r := NewSuccess(n * 2)
 			results = append(results, r)
 			atomic.AddUint32(&actualCount, 1)
 		}
@@ -75,4 +75,22 @@ func TestBatchFailure(t *testing.T) {
 	wg.Wait()
 }
 
-//TODO: test for cancellation
+func TestSubmitCancellation(t *testing.T) {
+	require := require.New(t)
+
+	run := func(items []int) ([]Result[int], error) {
+		var results []Result[int]
+		for _, n := range items {
+			results = append(results, NewSuccess(n*2))
+		}
+		return results, nil
+	}
+
+	be := NewBatchExecutor(3, 100*time.Millisecond, run)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel the context before submitting
+
+	_, err := be.Submit(ctx, 5)
+	require.ErrorIs(err, context.Canceled)
+}

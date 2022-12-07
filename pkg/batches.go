@@ -7,9 +7,10 @@ import (
 )
 
 //TODO:
-// - is there a better way to return results??
 // - configuration
 // - comments
+// - readme
+// - examples: SQS, SQL
 
 type ExecuteFunction[T any, R any] func(items []T) ([]Result[R], error)
 
@@ -17,11 +18,6 @@ type batch[T any, R any] struct {
 	id          int
 	items       []T
 	resultChans []chan<- Result[R]
-}
-
-type Result[R any] struct {
-	Val R
-	Err error
 }
 
 func (b *batch[T, R]) add(item T, resultChan chan<- Result[R]) {
@@ -57,8 +53,7 @@ func (be *BatchExecutor[T, R]) Submit(ctx context.Context, item T) (R, error) {
 		return res.Val, res.Err
 
 	case <-ctx.Done():
-		var noop R
-		return noop, context.Canceled
+		return *new(R), context.Canceled
 	}
 }
 
@@ -105,7 +100,7 @@ func (be *BatchExecutor[T, R]) executeBatch(b *batch[T, R]) {
 	res, err := be.execute(b.items)
 	if err != nil {
 		for _, c := range b.resultChans {
-			c <- Result[R]{Err: err}
+			c <- NewFailure[R](err)
 			close(c)
 		}
 	}
