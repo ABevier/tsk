@@ -34,7 +34,7 @@ func TestBatch(t *testing.T) {
 		return results, nil
 	}
 
-	be := NewBatchExecutor(run, BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond})
+	be := NewBatchExecutor(BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond}, run)
 
 	for i := 0; i < itemCount; i++ {
 		go func(val int) {
@@ -61,7 +61,7 @@ func TestBatchFailure(t *testing.T) {
 		return nil, ErrTest
 	}
 
-	be := NewBatchExecutor(run, BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond})
+	be := NewBatchExecutor(BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond}, run)
 
 	for i := 0; i < itemCount; i++ {
 		wg.Add(1)
@@ -86,7 +86,7 @@ func TestSubmitCancellation(t *testing.T) {
 		return results, nil
 	}
 
-	be := NewBatchExecutor(run, BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond})
+	be := NewBatchExecutor(BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond}, run)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel the context before submitting
