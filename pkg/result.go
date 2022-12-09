@@ -1,8 +1,12 @@
 package tsk
 
-type Result[T any] struct {
-	Val T
+type Result[R any] struct {
+	Val R
 	Err error
+}
+
+func NewResult[R any](val R, err error) Result[R] {
+	return Result[R]{Val: val, Err: err}
 }
 
 func NewSuccess[T any](val T) Result[T] {

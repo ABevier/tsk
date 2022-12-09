@@ -1,7 +1,6 @@
 package tsk
 
 import (
-	"errors"
 	"log"
 	"sync"
 	"sync/atomic"
@@ -13,12 +12,16 @@ type taskWrapper[T any, R any] struct {
 	resultChan chan<- Result[R]
 }
 
+type submitStrategy[T any, R any] func(taskChan chan<- taskWrapper[T, R], t taskWrapper[T, R]) error
+
 type TaskQueue[T any, R any] struct {
 	isStopping uint32
 
+	run      RunFunction[T, R]
 	taskChan chan taskWrapper[T, R]
 
-	// Protecting channels with N writers is hard :-(
+	submit submitStrategy[T, R]
+
 	waitSend *sync.WaitGroup
 	waitStop *sync.WaitGroup
 	stopOnce *sync.Once
@@ -26,58 +29,81 @@ type TaskQueue[T any, R any] struct {
 
 type RunFunction[T any, R any] func(task T) (R, error)
 
-func NewTaskQueue[T any, R any](maxWorkers int, run RunFunction[T, R]) *TaskQueue[T, R] {
-	taskChan := make(chan taskWrapper[T, R])
+func NewTaskQueue[T any, R any](maxWorkers int, maxQueueSize int, run RunFunction[T, R]) *TaskQueue[T, R] {
+	taskChan := make(chan taskWrapper[T, R], maxQueueSize)
 	waitStop := sync.WaitGroup{}
 
-	for i := 0; i < maxWorkers; i++ {
-
-		go func(n int) {
-			waitStop.Add(1)
-			defer waitStop.Done()
-
-			for {
-				select {
-				case task, ok := <-taskChan:
-					if !ok {
-						return
-					}
-					log.Printf("Running task on worker %d", n)
-
-					res, err := run(task.task)
-					task.resultChan <- Result[R]{Val: res, Err: err}
-					close(task.resultChan)
-				}
-			}
-		}(i)
-	}
-
-	return &TaskQueue[T, R]{
+	tq := &TaskQueue[T, R]{
+		run: run,
+		//submit:   submitBlockWhenFull[T, R],
+		submit:   submitErrorWhenFull[T, R],
 		taskChan: taskChan,
 		waitSend: &sync.WaitGroup{},
 		waitStop: &waitStop,
 		stopOnce: &sync.Once{},
 	}
+
+	for i := 0; i < maxWorkers; i++ {
+		waitStop.Add(1)
+		go tq.worker(i)
+	}
+
+	return tq
 }
 
+func (tq *TaskQueue[T, R]) worker(workerNum int) {
+	defer tq.waitStop.Done()
+
+	for {
+		select {
+		case task, ok := <-tq.taskChan:
+			if !ok {
+				return
+			}
+			//TODO: how to log in a library
+			log.Printf("Running task on worker %d", workerNum)
+
+			res, err := tq.run(task.task)
+			task.resultChan <- NewResult(res, err)
+			close(task.resultChan)
+		}
+	}
+}
+
+// TODO: accept a context and allow cancel
 func (tq *TaskQueue[T, R]) Submit(task T) (R, error) {
 	tq.waitSend.Add(1)
 	defer tq.waitSend.Done() // Consider releasing this immediately after the write??
 
 	if atomic.LoadUint32(&tq.isStopping) == 1 {
-		//TODO: fix this error
-		return *new(R), errors.New("fix me")
+		return *new(R), ErrStopped
 	}
 
 	resultChan := make(chan Result[R])
 	tw := taskWrapper[T, R]{task: task, resultChan: resultChan}
 
-	// TODO: this blocks, but add a strategy to return an error
-	tq.taskChan <- tw
+	if err := tq.submit(tq.taskChan, tw); err != nil {
+		return *new(R), err
+	}
 
-	// TODO: check okay and return an error?
 	result := <-resultChan
 	return result.Val, result.Err
+}
+
+func submitBlockWhenFull[T any, R any](taskChan chan<- taskWrapper[T, R], t taskWrapper[T, R]) error {
+	taskChan <- t
+	return nil
+}
+
+func submitErrorWhenFull[T any, R any](taskChan chan<- taskWrapper[T, R], t taskWrapper[T, R]) error {
+	log.Println("FFF")
+	select {
+	case taskChan <- t:
+		return nil
+	default:
+		log.Println("ZZZ")
+		return ErrQueueFull
+	}
 }
 
 func (tq *TaskQueue[T, R]) Stop() {
@@ -87,6 +113,5 @@ func (tq *TaskQueue[T, R]) Stop() {
 		close(tq.taskChan)
 	})
 
-	// TODO: allow a timeout
 	tq.waitStop.Wait()
 }

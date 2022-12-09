@@ -13,20 +13,27 @@ import (
 func TestTaskQueue(t *testing.T) {
 	require := require.New(t)
 
+	wg := sync.WaitGroup{}
+
 	run := func(task int) (int, error) {
 		log.Printf("i am task %d", task)
 		time.Sleep(randWait(10, 50))
 		return task * 2, nil
 	}
 
-	tq := NewTaskQueue(3, run)
+	tq := NewTaskQueue(3, 1, run)
 
 	for i := 0; i < 100; i++ {
-		val, err := tq.Submit(i)
-		require.NoError(err)
-		require.Equal(i*2, val)
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			val, err := tq.Submit(n)
+			require.NoError(err)
+			require.Equal(n*2, val)
+		}(i)
 	}
 
+	wg.Wait()
 	tq.Stop()
 }
 
@@ -38,9 +45,9 @@ func TestTaskQueueCloseMultipleTimes(t *testing.T) {
 		return task * 2, nil
 	}
 
-	tq := NewTaskQueue(3, run)
+	tq := NewTaskQueue(3, 1000, run)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1000; i++ {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
