@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+type BatchOpts struct {
+	MaxSize   int
+	MaxLinger time.Duration
+}
+
 type RunBatchFunction[T any, R any] func(tasks []T) ([]Result[R], error)
 
 type batch[T any, R any] struct {
