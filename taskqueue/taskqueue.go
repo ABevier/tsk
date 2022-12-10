@@ -6,7 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/ABevier/tsk/result"
+	"github.com/abevier/tsk/result"
 )
 
 type FullQueueBehavior int

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ABevier/tsk/result"
+	"github.com/abevier/tsk/result"
 )
 
 type BatchOpts struct {

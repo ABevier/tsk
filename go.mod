@@ -1,4 +1,4 @@
-module github.com/ABevier/tsk
+module github.com/abevier/tsk
 
 go 1.18
 
