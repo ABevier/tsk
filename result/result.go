@@ -1,4 +1,4 @@
-package tsk
+package result
 
 type Result[R any] struct {
 	Val R

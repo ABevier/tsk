@@ -1,4 +1,4 @@
-package tsk
+package taskqueue
 
 import (
 	"context"

@@ -1,9 +1,11 @@
-package tsk
+package batch
 
 import (
 	"context"
 	"sync"
 	"time"
+
+	"github.com/abevier/tsk/result"
 )
 
 type BatchOpts struct {
@@ -11,15 +13,15 @@ type BatchOpts struct {
 	MaxLinger time.Duration
 }
 
-type RunBatchFunction[T any, R any] func(tasks []T) ([]Result[R], error)
+type RunBatchFunction[T any, R any] func(tasks []T) ([]result.Result[R], error)
 
 type batch[T any, R any] struct {
 	id          int
 	tasks       []T
-	resultChans []chan<- Result[R]
+	resultChans []chan<- result.Result[R]
 }
 
-func (b *batch[T, R]) add(task T, resultChan chan<- Result[R]) {
+func (b *batch[T, R]) add(task T, resultChan chan<- result.Result[R]) {
 	b.tasks = append(b.tasks, task)
 	b.resultChans = append(b.resultChans, resultChan)
 }
@@ -44,7 +46,7 @@ func NewBatchExecutor[T any, R any](opts BatchOpts, run RunBatchFunction[T, R]) 
 }
 
 func (be *BatchExecutor[T, R]) Submit(ctx context.Context, task T) (R, error) {
-	resultChan := make(chan Result[R])
+	resultChan := make(chan result.Result[R])
 	be.addTask(task, resultChan)
 
 	select {
@@ -56,7 +58,7 @@ func (be *BatchExecutor[T, R]) Submit(ctx context.Context, task T) (R, error) {
 	}
 }
 
-func (be *BatchExecutor[T, R]) addTask(task T, resultChan chan<- Result[R]) {
+func (be *BatchExecutor[T, R]) addTask(task T, resultChan chan<- result.Result[R]) {
 	be.m.Lock()
 	defer be.m.Unlock()
 
@@ -99,7 +101,7 @@ func (be *BatchExecutor[T, R]) runBatch(b *batch[T, R]) {
 	res, err := be.run(b.tasks)
 	if err != nil {
 		for _, c := range b.resultChans {
-			c <- NewFailure[R](err)
+			c <- result.NewFailure[R](err)
 			close(c)
 		}
 	}

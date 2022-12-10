@@ -1,10 +1,12 @@
-package tsk
+package taskqueue
 
 import (
 	"context"
 	"log"
 	"sync"
 	"sync/atomic"
+
+	"github.com/abevier/tsk/result"
 )
 
 type FullQueueBehavior int
@@ -25,11 +27,11 @@ type TaskQueueOpts struct {
 type taskWrapper[T any, R any] struct {
 	ctx        context.Context
 	task       T
-	resultChan chan Result[R]
+	resultChan chan result.Result[R]
 }
 
 func newTaskWrapper[T any, R any](ctx context.Context, task T) taskWrapper[T, R] {
-	resultChan := make(chan Result[R])
+	resultChan := make(chan result.Result[R])
 	return taskWrapper[T, R]{
 		ctx:        ctx,
 		task:       task,
@@ -98,7 +100,7 @@ func (tq *TaskQueue[T, R]) worker(workerNum int) {
 			res, err := tq.run(task.task)
 			select {
 			case <-task.ctx.Done():
-			case task.resultChan <- NewResult(res, err):
+			case task.resultChan <- result.NewResult(res, err):
 			}
 
 			close(task.resultChan)
