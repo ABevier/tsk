@@ -1,4 +1,4 @@
-module github.com/abevier/tasks
+module github.com/abevier/tsk
 
 go 1.18
 

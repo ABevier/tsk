@@ -1,13 +1,13 @@
-# go-tasks
+# tsk
 
 TODO:
- - Is Task the Right word?
- - Check OK value when reading channels
- - Should we have a logger?
  - readme
+ - repackage things
  Batching:
  - configuration
      - validate config and set defaults
+ - close batch
+ - fix blocking when context is cancelled
  - comments
  - examples: SQS, SQL
  ---------
@@ -16,3 +16,8 @@ TODO:
    - add worker id to the context
  - configuration
      - validate config and set defaults
+ ----------
+ - Futures?
+ - Retries?
+ - Parallelize?
+
