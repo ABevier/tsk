@@ -19,5 +19,5 @@ TODO:
  ----------
  - Futures?
  - Retries?
- - Parallelize?
+ - Parallelize? - use errGroups?
 
