@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/abevier/tsk/result"
+	"github.com/ABevier/tsk/result"
 	"github.com/stretchr/testify/require"
 )
 
