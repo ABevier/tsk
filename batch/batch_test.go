@@ -27,7 +27,7 @@ func TestBatch(t *testing.T) {
 		var results []result.Result[int]
 
 		for _, n := range items {
-			r := result.NewSuccess(n * 2)
+			r := result.Success(n * 2)
 			results = append(results, r)
 			atomic.AddUint32(&actualCount, 1)
 		}
@@ -35,7 +35,7 @@ func TestBatch(t *testing.T) {
 		return results, nil
 	}
 
-	be := NewBatchExecutor(BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond}, run)
+	be := NewExecutor(BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond}, run)
 
 	for i := 0; i < itemCount; i++ {
 		go func(val int) {
@@ -62,7 +62,7 @@ func TestBatchFailure(t *testing.T) {
 		return nil, ErrTest
 	}
 
-	be := NewBatchExecutor(BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond}, run)
+	be := NewExecutor(BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond}, run)
 
 	for i := 0; i < itemCount; i++ {
 		wg.Add(1)
@@ -82,12 +82,12 @@ func TestSubmitCancellation(t *testing.T) {
 	run := func(items []int) ([]result.Result[int], error) {
 		var results []result.Result[int]
 		for _, n := range items {
-			results = append(results, result.NewSuccess(n*2))
+			results = append(results, result.Success(n*2))
 		}
 		return results, nil
 	}
 
-	be := NewBatchExecutor(BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond}, run)
+	be := NewExecutor(BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond}, run)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel the context before submitting

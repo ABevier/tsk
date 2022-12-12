@@ -2,13 +2,12 @@
 
 TODO:
  - readme
- - repackage things
+ - comments / documentation
  Batching:
  - configuration
      - validate config and set defaults
  - close batch
  - fix blocking when context is cancelled
- - comments
  - examples: SQS, SQL
  ---------
  Worker Queue (control max concurrency):
@@ -19,5 +18,4 @@ TODO:
  ----------
  - Futures?
  - Retries?
- - Parallelize - use errGroups?
 

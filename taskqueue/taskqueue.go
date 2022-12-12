@@ -100,7 +100,7 @@ func (tq *TaskQueue[T, R]) worker(workerNum int) {
 			res, err := tq.run(task.task)
 			select {
 			case <-task.ctx.Done():
-			case task.resultChan <- result.NewResult(res, err):
+			case task.resultChan <- result.New(res, err):
 			}
 
 			close(task.resultChan)
