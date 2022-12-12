@@ -10,12 +10,12 @@ TODO:
  - fix blocking when context is cancelled
  - examples: SQS, SQL
  ---------
- Worker Queue (control max concurrency):
+ Task Queue (control max concurrency):
+ - Fix races
  - handle context cancellation better (pass it through all the way)
    - add worker id to the context
  - configuration
      - validate config and set defaults
  ----------
- - Futures?
  - Retries?
 

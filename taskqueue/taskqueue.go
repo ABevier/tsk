@@ -109,12 +109,12 @@ func (tq *TaskQueue[T, R]) worker(workerNum int) {
 }
 
 func (tq *TaskQueue[T, R]) Submit(ctx context.Context, task T) (R, error) {
-	tq.waitSend.Add(1)
-	defer tq.waitSend.Done()
-
 	if atomic.LoadUint32(&tq.isStopping) == 1 {
 		return *new(R), ErrStopped
 	}
+
+	tq.waitSend.Add(1)
+	defer tq.waitSend.Done()
 
 	tw := newTaskWrapper[T, R](ctx, task)
 
