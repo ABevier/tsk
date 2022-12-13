@@ -10,6 +10,8 @@ var (
 	ErrCanceled = errors.New("future canceled")
 )
 
+type FutureFunc[T any] func() (T, error)
+
 type Future[T any] struct {
 	isCompleted uint32
 	completed   chan struct{}
@@ -18,14 +20,14 @@ type Future[T any] struct {
 	err   error
 }
 
-func New[T any]() *Future[T] {
-	return &Future[T]{
+func New[T any](ctx context.Context) *Future[T] {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	f := &Future[T]{
 		completed: make(chan struct{}),
 	}
-}
-
-func NewWithContext[T any](ctx context.Context) *Future[T] {
-	f := New[T]()
 
 	go func() {
 		select {
@@ -38,8 +40,8 @@ func NewWithContext[T any](ctx context.Context) *Future[T] {
 	return f
 }
 
-func NewFromFunction[T any](ctx context.Context, do func() (T, error)) *Future[T] {
-	f := NewWithContext[T](ctx)
+func FromFunc[T any](ctx context.Context, do FutureFunc[T]) *Future[T] {
+	f := New[T](ctx)
 
 	go func() {
 		t, err := do()

@@ -9,10 +9,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	ErrTest = errors.New("test error")
+)
+
 func TestFuture(t *testing.T) {
 	require := require.New(t)
 
-	f := New[int]()
+	f := New[int](nil)
 
 	go func() {
 		time.Sleep(10 * time.Millisecond)
@@ -21,15 +25,36 @@ func TestFuture(t *testing.T) {
 		f.Complete(3)
 	}()
 
-	v, err := f.Get(context.TODO())
+	v, err := f.Get(context.Background())
 	require.NoError(err)
 	require.Equal(1, v)
+}
+
+func TestFromFunc(t *testing.T) {
+	require := require.New(t)
+
+	f := FromFunc(context.Background(), func() (int, error) {
+		time.Sleep(10 * time.Millisecond)
+		return 42, nil
+	})
+
+	r, err := f.Get(context.Background())
+	require.NoError(err)
+	require.Equal(42, r)
+
+	f = FromFunc(context.Background(), func() (int, error) {
+		time.Sleep(10 * time.Millisecond)
+		return 0, ErrTest
+	})
+
+	r, err = f.Get(context.Background())
+	require.ErrorIs(err, ErrTest)
 }
 
 func TestComplete(t *testing.T) {
 	require := require.New(t)
 
-	f := New[int]()
+	f := New[int](context.Background())
 
 	for i := 0; i <= 1000; i++ {
 		go func() {
@@ -37,7 +62,7 @@ func TestComplete(t *testing.T) {
 		}()
 	}
 
-	v, err := f.Get(context.TODO())
+	v, err := f.Get(context.Background())
 	require.NoError(err)
 	require.Equal(42, v)
 }
@@ -45,7 +70,7 @@ func TestComplete(t *testing.T) {
 func TestCancel(t *testing.T) {
 	require := require.New(t)
 
-	f := New[int]()
+	f := New[int](context.Background())
 
 	for i := 0; i <= 1000; i++ {
 		go func() {
@@ -54,33 +79,30 @@ func TestCancel(t *testing.T) {
 		}()
 	}
 
-	_, err := f.Get(context.TODO())
+	_, err := f.Get(context.Background())
 	require.ErrorIs(err, ErrCanceled)
 }
 
 func TestFail(t *testing.T) {
 	require := require.New(t)
 
-	testErr := errors.New("test error")
-
-	f := New[int]()
+	f := New[int](context.Background())
 
 	for i := 0; i <= 1000; i++ {
 		go func() {
 			time.Sleep(10 * time.Millisecond)
-			f.Fail(testErr)
+			f.Fail(ErrTest)
 		}()
 	}
 
-	_, err := f.Get(context.TODO())
-	require.ErrorIs(err, testErr)
+	_, err := f.Get(context.Background())
+	require.ErrorIs(err, ErrTest)
 }
 
 func TestCancelOnGet(t *testing.T) {
 	require := require.New(t)
 
-	f := New[int]()
-
+	f := New[int](context.Background())
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
@@ -96,8 +118,7 @@ func TestCancelingContextOnFuture(t *testing.T) {
 	require := require.New(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
-
-	f := NewWithContext[int](ctx)
+	f := New[int](ctx)
 
 	go func() {
 		time.Sleep(10 * time.Millisecond)
