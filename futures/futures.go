@@ -54,14 +54,7 @@ func (f *Future[T]) Fail(err error) {
 }
 
 func (f *Future[T]) internalComplete(val T, err error) {
-	if atomic.LoadUint32(&f.isCompleted) != 0 {
-		return
-	}
-
-	f.m.Lock()
-	defer f.m.Unlock()
-
-	if f.isCompleted == 0 {
+	if atomic.CompareAndSwapUint32(&f.isCompleted, 0, 1) {
 		f.value = val
 		f.err = err
 		atomic.StoreUint32(&f.isCompleted, 1)
