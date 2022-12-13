@@ -3,7 +3,6 @@ package futures
 import (
 	"context"
 	"errors"
-	"sync"
 	"sync/atomic"
 )
 
@@ -12,7 +11,6 @@ var (
 )
 
 type Future[T any] struct {
-	m           *sync.Mutex
 	isCompleted uint32
 	completed   chan struct{}
 
@@ -22,7 +20,6 @@ type Future[T any] struct {
 
 func New[T any]() *Future[T] {
 	return &Future[T]{
-		m:         &sync.Mutex{},
 		completed: make(chan struct{}),
 	}
 }
@@ -36,6 +33,20 @@ func NewWithContext[T any](ctx context.Context) *Future[T] {
 			f.internalComplete(*new(T), context.Canceled)
 		case <-f.completed:
 		}
+	}()
+
+	return f
+}
+
+func NewFromFunction[T any](ctx context.Context, do func() (T, error)) *Future[T] {
+	f := NewWithContext[T](ctx)
+
+	go func() {
+		t, err := do()
+		if err != nil {
+			f.Fail(err)
+		}
+		f.Complete(t)
 	}()
 
 	return f
@@ -57,7 +68,6 @@ func (f *Future[T]) internalComplete(val T, err error) {
 	if atomic.CompareAndSwapUint32(&f.isCompleted, 0, 1) {
 		f.value = val
 		f.err = err
-		atomic.StoreUint32(&f.isCompleted, 1)
 		close(f.completed)
 	}
 }
