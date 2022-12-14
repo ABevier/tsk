@@ -1,8 +1,5 @@
 # Futures
 
-TODO:
-- NewFromFunction
-
 ## Why?
 
 Using a channel as a future doesn't work when the value will be read by multiple consumers. A value can only
