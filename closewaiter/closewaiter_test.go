@@ -11,11 +11,12 @@ func TestCloseWaiter(t *testing.T) {
 	testChan := make(chan int)
 	shutdownSignal := make(chan struct{})
 
-	wg := sync.WaitGroup{}
+	writerWG := sync.WaitGroup{}
+	closerWG := sync.WaitGroup{}
 
 	// start 3 writers
 	for i := 0; i < 3; i++ {
-		wg.Add(1)
+		writerWG.Add(1)
 		go func() {
 			var err error
 			for err == nil {
@@ -23,7 +24,7 @@ func TestCloseWaiter(t *testing.T) {
 					testChan <- 1
 				})
 			}
-			wg.Done()
+			writerWG.Done()
 		}()
 	}
 
@@ -44,11 +45,19 @@ func TestCloseWaiter(t *testing.T) {
 	// Let the work flow until a shutdown is signaled
 	<-shutdownSignal
 
-	// should not panic
-	cw.Close(func() {
-		close(testChan)
-	})
+	// shutdown multiple times, it should not panic
+	for i := 0; i < 3; i++ {
+		closerWG.Add(1)
+		go func() {
+			cw.Close(func() {
+				close(testChan)
+			})
+			closerWG.Done()
+		}()
+	}
+
+	closerWG.Wait()
 
 	// all writers should have closed "gracefully" during the shutdown sequence
-	wg.Wait()
+	writerWG.Wait()
 }
