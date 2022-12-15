@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/abevier/tsk/futures"
 	"github.com/abevier/tsk/result"
 )
 
@@ -16,16 +17,14 @@ type BatchOpts struct {
 type RunBatchFunction[T any, R any] func(tasks []T) ([]result.Result[R], error)
 
 type batch[T any, R any] struct {
-	id          int
-	contexts    []context.Context
-	tasks       []T
-	resultChans []chan<- result.Result[R]
+	id      int
+	tasks   []T
+	futures []*futures.Future[R]
 }
 
-func (b *batch[T, R]) add(ctx context.Context, task T, resultChan chan<- result.Result[R]) {
-	b.contexts = append(b.contexts, ctx)
+func (b *batch[T, R]) add(task T, future *futures.Future[R]) {
 	b.tasks = append(b.tasks, task)
-	b.resultChans = append(b.resultChans, resultChan)
+	b.futures = append(b.futures, future)
 }
 
 type BatchExecutor[T any, R any] struct {
@@ -48,26 +47,24 @@ func NewExecutor[T any, R any](opts BatchOpts, run RunBatchFunction[T, R]) *Batc
 }
 
 func (be *BatchExecutor[T, R]) Submit(ctx context.Context, task T) (R, error) {
-	resultChan := make(chan result.Result[R])
-	be.addTask(ctx, task, resultChan)
-
-	select {
-	case res := <-resultChan:
-		return res.Val, res.Err
-
-	case <-ctx.Done():
-		return *new(R), context.Canceled
-	}
+	f := be.SubmitF(ctx, task)
+	return f.Get(ctx)
 }
 
-func (be *BatchExecutor[T, R]) addTask(ctx context.Context, task T, resultChan chan<- result.Result[R]) {
+func (be *BatchExecutor[T, R]) SubmitF(ctx context.Context, task T) *futures.Future[R] {
+	future := futures.New[R](ctx)
+	be.addTask(task, future)
+	return future
+}
+
+func (be *BatchExecutor[T, R]) addTask(task T, future *futures.Future[R]) {
 	be.m.Lock()
 	defer be.m.Unlock()
 
 	if be.currentBatch == nil {
 		be.currentBatch = be.newBatch()
 	}
-	be.currentBatch.add(ctx, task, resultChan)
+	be.currentBatch.add(task, future)
 
 	if len(be.currentBatch.tasks) >= be.maxSize {
 		go be.runBatch(be.currentBatch)
@@ -102,26 +99,26 @@ func (be *BatchExecutor[T, R]) expireBatch(batchId int) {
 func (be *BatchExecutor[T, R]) runBatch(b *batch[T, R]) {
 	res, err := be.run(b.tasks)
 	if err != nil {
-		for i := range b.tasks {
-			b.sendResult(i, result.Failure[R](err))
+		for _, f := range b.futures {
+			f.Fail(err)
 		}
 	}
 
 	//TODO: verify that result length is the same as the task length
 
 	for i, r := range res {
-		b.sendResult(i, r)
+		b.futures[i].CompleteWithResult(r)
 	}
 }
 
-func (b *batch[T, R]) sendResult(idx int, result result.Result[R]) {
-	ctx := b.contexts[idx]
-	resultChan := b.resultChans[idx]
+// func (b *batch[T, R]) sendResult(idx int, result result.Result[R]) {
+// 	ctx := b.contexts[idx]
+// 	resultChan := b.resultChans[idx]
 
-	select {
-	case resultChan <- result:
-	case <-ctx.Done():
-	}
+// 	select {
+// 	case resultChan <- result:
+// 	case <-ctx.Done():
+// 	}
 
-	close(resultChan)
-}
+// 	close(resultChan)
+// }

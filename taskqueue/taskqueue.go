@@ -6,7 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/abevier/tsk/result"
+	"github.com/abevier/tsk/futures"
 )
 
 type FullQueueBehavior int
@@ -23,29 +23,18 @@ type TaskQueueOpts struct {
 	FullQueueBehavior FullQueueBehavior
 }
 
-//TODO: rename this lol
-type taskWrapper[T any, R any] struct {
-	ctx        context.Context
-	task       T
-	resultChan chan result.Result[R]
+type taskFuture[T any, R any] struct {
+	task   T
+	future *futures.Future[R]
 }
 
-func newTaskWrapper[T any, R any](ctx context.Context, task T) taskWrapper[T, R] {
-	resultChan := make(chan result.Result[R])
-	return taskWrapper[T, R]{
-		ctx:        ctx,
-		task:       task,
-		resultChan: resultChan,
-	}
-}
-
-type submitStrategy[T any, R any] func(taskChan chan<- taskWrapper[T, R], t taskWrapper[T, R]) error
+type submitStrategy[T any, R any] func(taskChan chan<- taskFuture[T, R], tf taskFuture[T, R]) error
 
 type TaskQueue[T any, R any] struct {
 	isStopping uint32
 
 	run      RunFunction[T, R]
-	taskChan chan taskWrapper[T, R]
+	taskChan chan taskFuture[T, R]
 
 	submit submitStrategy[T, R]
 
@@ -57,7 +46,7 @@ type TaskQueue[T any, R any] struct {
 type RunFunction[T any, R any] func(task T) (R, error)
 
 func NewTaskQueue[T any, R any](opts TaskQueueOpts, run RunFunction[T, R]) *TaskQueue[T, R] {
-	taskChan := make(chan taskWrapper[T, R], opts.MaxQueueDepth)
+	taskChan := make(chan taskFuture[T, R], opts.MaxQueueDepth)
 	waitStop := sync.WaitGroup{}
 
 	tq := &TaskQueue[T, R]{
@@ -87,7 +76,7 @@ func (tq *TaskQueue[T, R]) worker(workerNum int) {
 
 	for {
 		select {
-		case task, ok := <-tq.taskChan:
+		case tf, ok := <-tq.taskChan:
 			if !ok {
 				return
 			}
@@ -97,46 +86,47 @@ func (tq *TaskQueue[T, R]) worker(workerNum int) {
 			//TODO: instead of trying to log in the library add TSK_WORKER_ID to the context
 			log.Printf("Running task on worker %d", workerNum)
 
-			res, err := tq.run(task.task)
-			select {
-			case <-task.ctx.Done():
-			case task.resultChan <- result.New(res, err):
+			res, err := tq.run(tf.task)
+			if err != nil {
+				tf.future.Fail(err)
 			}
-
-			close(task.resultChan)
+			tf.future.Complete(res)
 		}
 	}
 }
 
 func (tq *TaskQueue[T, R]) Submit(ctx context.Context, task T) (R, error) {
+	future, err := tq.SubmitF(ctx, task)
+	if err != nil {
+		return *new(R), err
+	}
+	return future.Get(ctx)
+}
+
+func (tq *TaskQueue[T, R]) SubmitF(ctx context.Context, task T) (*futures.Future[R], error) {
 	tq.waitSend.Add(1)
 	defer tq.waitSend.Done()
 
 	if atomic.LoadUint32(&tq.isStopping) == 1 {
-		return *new(R), ErrStopped
+		return nil, ErrStopped
 	}
 
-	tw := newTaskWrapper[T, R](ctx, task)
+	future := futures.New[R](ctx)
+	tf := taskFuture[T, R]{task: task, future: future}
 
-	if err := tq.submit(tq.taskChan, tw); err != nil {
-		return *new(R), err
+	if err := tq.submit(tq.taskChan, tf); err != nil {
+		return nil, err
 	}
 
-	select {
-	case res := <-tw.resultChan:
-		return res.Val, res.Err
-
-	case <-ctx.Done():
-		return *new(R), context.Canceled
-	}
+	return future, nil
 }
 
-func submitBlockWhenFull[T any, R any](taskChan chan<- taskWrapper[T, R], t taskWrapper[T, R]) error {
+func submitBlockWhenFull[T any, R any](taskChan chan<- taskFuture[T, R], t taskFuture[T, R]) error {
 	taskChan <- t
 	return nil
 }
 
-func submitErrorWhenFull[T any, R any](taskChan chan<- taskWrapper[T, R], t taskWrapper[T, R]) error {
+func submitErrorWhenFull[T any, R any](taskChan chan<- taskFuture[T, R], t taskFuture[T, R]) error {
 	select {
 	case taskChan <- t:
 		return nil
