@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/abevier/tsk/result"
+	"github.com/abevier/tsk/results"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,16 +23,16 @@ func TestBatch(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(itemCount)
 
-	run := func(items []int) ([]result.Result[int], error) {
-		var results []result.Result[int]
+	run := func(items []int) ([]results.Result[int], error) {
+		var rs []results.Result[int]
 
 		for _, n := range items {
-			r := result.Success(n * 2)
-			results = append(results, r)
+			r := results.Success(n * 2)
+			rs = append(rs, r)
 			atomic.AddUint32(&actualCount, 1)
 		}
 
-		return results, nil
+		return rs, nil
 	}
 
 	be := NewExecutor(BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond}, run)
@@ -58,7 +58,7 @@ func TestBatchFailure(t *testing.T) {
 	itemCount := 10
 	wg := sync.WaitGroup{}
 
-	run := func(items []int) ([]result.Result[int], error) {
+	run := func(items []int) ([]results.Result[int], error) {
 		return nil, ErrTest
 	}
 
@@ -79,12 +79,12 @@ func TestBatchFailure(t *testing.T) {
 func TestSubmitCancellation(t *testing.T) {
 	require := require.New(t)
 
-	run := func(items []int) ([]result.Result[int], error) {
-		var results []result.Result[int]
+	run := func(items []int) ([]results.Result[int], error) {
+		var rs []results.Result[int]
 		for _, n := range items {
-			results = append(results, result.Success(n*2))
+			rs = append(rs, results.Success(n*2))
 		}
-		return results, nil
+		return rs, nil
 	}
 
 	be := NewExecutor(BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond}, run)

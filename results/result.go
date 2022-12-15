@@ -1,4 +1,4 @@
-package result
+package results
 
 type Result[R any] struct {
 	Val R

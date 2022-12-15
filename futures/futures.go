@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"sync/atomic"
-
-	"github.com/abevier/tsk/result"
 )
 
 var (
@@ -58,10 +56,6 @@ func FromFunc[T any](ctx context.Context, do FutureFunc[T]) *Future[T] {
 
 func (f *Future[T]) Complete(value T) {
 	f.internalComplete(value, nil)
-}
-
-func (f *Future[T]) CompleteWithResult(r result.Result[T]) {
-	f.internalComplete(r.Val, r.Err)
 }
 
 func (f *Future[T]) Cancel() {

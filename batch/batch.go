@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/abevier/tsk/futures"
-	"github.com/abevier/tsk/result"
+	"github.com/abevier/tsk/results"
 )
 
 type BatchOpts struct {
@@ -14,7 +14,7 @@ type BatchOpts struct {
 	MaxLinger time.Duration
 }
 
-type RunBatchFunction[T any, R any] func(tasks []T) ([]result.Result[R], error)
+type RunBatchFunction[T any, R any] func(tasks []T) ([]results.Result[R], error)
 
 type batch[T any, R any] struct {
 	id      int
@@ -107,18 +107,10 @@ func (be *BatchExecutor[T, R]) runBatch(b *batch[T, R]) {
 	//TODO: verify that result length is the same as the task length
 
 	for i, r := range res {
-		b.futures[i].CompleteWithResult(r)
+		if r.Err != nil {
+			b.futures[i].Fail(err)
+		} else {
+			b.futures[i].Complete(r.Val)
+		}
 	}
 }
-
-// func (b *batch[T, R]) sendResult(idx int, result result.Result[R]) {
-// 	ctx := b.contexts[idx]
-// 	resultChan := b.resultChans[idx]
-
-// 	select {
-// 	case resultChan <- result:
-// 	case <-ctx.Done():
-// 	}
-
-// 	close(resultChan)
-// }
