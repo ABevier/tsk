@@ -2,7 +2,7 @@ package batch
 
 import (
 	"context"
-	"sync"
+	"math"
 	"time"
 
 	"github.com/abevier/tsk/futures"
@@ -22,28 +22,35 @@ type batch[T any, R any] struct {
 	futures []*futures.Future[R]
 }
 
-func (b *batch[T, R]) add(task T, future *futures.Future[R]) {
+func (b *batch[T, R]) add(task T, future *futures.Future[R]) int {
 	b.tasks = append(b.tasks, task)
 	b.futures = append(b.futures, future)
+	return len(b.tasks)
+}
+
+type taskFuture[T any, R any] struct {
+	task   T
+	future *futures.Future[R]
 }
 
 type BatchExecutor[T any, R any] struct {
-	m            *sync.Mutex
-	sequenceNum  int
-	currentBatch *batch[T, R]
-	run          RunBatchFunction[T, R]
-	maxSize      int
-	maxLinger    time.Duration
+	maxSize   int
+	maxLinger time.Duration
+	taskChan  chan taskFuture[T, R]
+	run       RunBatchFunction[T, R]
 }
 
 func NewExecutor[T any, R any](opts BatchOpts, run RunBatchFunction[T, R]) *BatchExecutor[T, R] {
-	return &BatchExecutor[T, R]{
-		m:           &sync.Mutex{},
-		sequenceNum: 0,
-		run:         run,
-		maxSize:     opts.MaxSize,
-		maxLinger:   opts.MaxLinger,
+	be := &BatchExecutor[T, R]{
+		maxSize:   opts.MaxSize,
+		maxLinger: opts.MaxLinger,
+		taskChan:  make(chan taskFuture[T, R]),
+		run:       run,
 	}
+
+	be.do(be.taskChan)
+
+	return be
 }
 
 func (be *BatchExecutor[T, R]) Submit(ctx context.Context, task T) (R, error) {
@@ -53,47 +60,52 @@ func (be *BatchExecutor[T, R]) Submit(ctx context.Context, task T) (R, error) {
 
 func (be *BatchExecutor[T, R]) SubmitF(ctx context.Context, task T) *futures.Future[R] {
 	future := futures.New[R](ctx)
-	be.addTask(task, future)
+	be.taskChan <- taskFuture[T, R]{task: task, future: future}
 	return future
 }
 
-func (be *BatchExecutor[T, R]) addTask(task T, future *futures.Future[R]) {
-	be.m.Lock()
-	defer be.m.Unlock()
+func (be *BatchExecutor[T, R]) do(taskChan <-chan taskFuture[T, R]) {
+	go func() {
+		var currentBatch *batch[T, R]
+		t := time.NewTimer(math.MaxInt64)
 
-	if be.currentBatch == nil {
-		be.currentBatch = be.newBatch()
-	}
-	be.currentBatch.add(task, future)
+		for {
+			select {
+			case <-t.C:
+				// batch expired due to time
+				if currentBatch != nil {
+					go be.runBatch(currentBatch)
+					currentBatch = nil
+					t.Reset(be.maxLinger)
+				}
+			case ft := <-taskChan:
+				if currentBatch == nil {
+					// open a new batch since once doesn't exist
+					currentBatch = &batch[T, R]{
+						tasks: make([]T, 0, be.maxSize),
+					}
 
-	if len(be.currentBatch.tasks) >= be.maxSize {
-		go be.runBatch(be.currentBatch)
-		be.currentBatch = nil
-	}
-}
+					if !t.Stop() {
+						<-t.C
+					}
+					t.Reset(be.maxLinger)
+				}
 
-func (be *BatchExecutor[T, R]) newBatch() *batch[T, R] {
-	be.sequenceNum++
+				size := currentBatch.add(ft.task, ft.future)
 
-	b := &batch[T, R]{
-		id:    be.sequenceNum,
-		tasks: make([]T, 0, be.maxSize),
-	}
+				if size >= be.maxSize {
+					// flush the batch due to size
+					go be.runBatch(currentBatch)
+					currentBatch = nil
 
-	go be.expireBatch(b.id)
-	return b
-}
-
-func (be *BatchExecutor[T, R]) expireBatch(batchId int) {
-	time.Sleep(be.maxLinger)
-
-	be.m.Lock()
-	defer be.m.Unlock()
-
-	if be.currentBatch != nil && be.currentBatch.id == batchId {
-		go be.runBatch(be.currentBatch)
-		be.currentBatch = nil
-	}
+					if !t.Stop() {
+						<-t.C
+					}
+					t.Reset(math.MaxInt64)
+				}
+			}
+		}
+	}()
 }
 
 func (be *BatchExecutor[T, R]) runBatch(b *batch[T, R]) {
@@ -107,7 +119,7 @@ func (be *BatchExecutor[T, R]) runBatch(b *batch[T, R]) {
 
 	if len(res) != len(b.tasks) {
 		for _, f := range b.futures {
-			f.Fail(err)
+			f.Fail(ErrBatchResultMismatch)
 		}
 		return
 	}
