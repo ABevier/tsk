@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"sync"
-	"sync/atomic"
 
 	"github.com/abevier/tsk/futures"
 )
@@ -31,16 +30,10 @@ type taskFuture[T any, R any] struct {
 type submitStrategy[T any, R any] func(taskChan chan<- taskFuture[T, R], tf taskFuture[T, R]) error
 
 type TaskQueue[T any, R any] struct {
-	isStopping uint32
-
 	run      RunFunction[T, R]
 	taskChan chan taskFuture[T, R]
 
 	submit submitStrategy[T, R]
-
-	waitSend *sync.WaitGroup
-	waitStop *sync.WaitGroup
-	stopOnce *sync.Once
 }
 
 type RunFunction[T any, R any] func(task T) (R, error)
@@ -52,9 +45,6 @@ func NewTaskQueue[T any, R any](opts TaskQueueOpts, run RunFunction[T, R]) *Task
 	tq := &TaskQueue[T, R]{
 		run:      run,
 		taskChan: taskChan,
-		waitSend: &sync.WaitGroup{},
-		waitStop: &waitStop,
-		stopOnce: &sync.Once{},
 	}
 
 	if opts.FullQueueBehavior == BlockWhenFull {
@@ -72,8 +62,6 @@ func NewTaskQueue[T any, R any](opts TaskQueueOpts, run RunFunction[T, R]) *Task
 }
 
 func (tq *TaskQueue[T, R]) worker(workerNum int) {
-	defer tq.waitStop.Done()
-
 	for {
 		select {
 		case tf, ok := <-tq.taskChan:
@@ -104,13 +92,6 @@ func (tq *TaskQueue[T, R]) Submit(ctx context.Context, task T) (R, error) {
 }
 
 func (tq *TaskQueue[T, R]) SubmitF(ctx context.Context, task T) (*futures.Future[R], error) {
-	tq.waitSend.Add(1)
-	defer tq.waitSend.Done()
-
-	if atomic.LoadUint32(&tq.isStopping) == 1 {
-		return nil, ErrStopped
-	}
-
 	future := futures.New[R](ctx)
 	tf := taskFuture[T, R]{task: task, future: future}
 
@@ -133,14 +114,4 @@ func submitErrorWhenFull[T any, R any](taskChan chan<- taskFuture[T, R], t taskF
 	default:
 		return ErrQueueFull
 	}
-}
-
-func (tq *TaskQueue[T, R]) Stop() {
-	tq.stopOnce.Do(func() {
-		atomic.StoreUint32(&tq.isStopping, 1)
-		tq.waitSend.Wait()
-		close(tq.taskChan)
-	})
-
-	tq.waitStop.Wait()
 }

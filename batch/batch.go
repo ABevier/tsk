@@ -102,9 +102,15 @@ func (be *BatchExecutor[T, R]) runBatch(b *batch[T, R]) {
 		for _, f := range b.futures {
 			f.Fail(err)
 		}
+		return
 	}
 
-	//TODO: verify that result length is the same as the task length
+	if len(res) != len(b.tasks) {
+		for _, f := range b.futures {
+			f.Fail(err)
+		}
+		return
+	}
 
 	for i, r := range res {
 		if r.Err != nil {

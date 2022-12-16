@@ -17,5 +17,7 @@ TODO:
  - configuration
      - validate config and set defaults
  ----------
- - Retries?
+- Future Additions:
+  - Rate Limiter
+  - Debouncer
 
