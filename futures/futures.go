@@ -16,6 +16,7 @@ type Future[T any] struct {
 	isCompleted uint32
 	completed   chan struct{}
 
+	ctx   context.Context
 	value T
 	err   error
 }
@@ -26,6 +27,7 @@ func New[T any](ctx context.Context) *Future[T] {
 	}
 
 	f := &Future[T]{
+		ctx:       ctx,
 		completed: make(chan struct{}),
 	}
 
@@ -52,6 +54,10 @@ func FromFunc[T any](ctx context.Context, do FutureFunc[T]) *Future[T] {
 	}()
 
 	return f
+}
+
+func (f *Future[T]) Ctx() context.Context {
+	return f.ctx
 }
 
 func (f *Future[T]) Complete(value T) {

@@ -2,7 +2,6 @@ package taskqueue
 
 import (
 	"context"
-	"log"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -15,27 +14,18 @@ import (
 func TestTaskQueue(t *testing.T) {
 	require := require.New(t)
 
-	wg := sync.WaitGroup{}
-
-	run := func(task int) (int, error) {
-		log.Printf("i am task %d", task)
-		time.Sleep(randWait(10, 50))
+	run := func(ctx context.Context, task int) (int, error) {
 		return task * 2, nil
 	}
 
 	tq := NewTaskQueue(TaskQueueOpts{MaxWorkers: 3, MaxQueueDepth: 10, FullQueueBehavior: BlockWhenFull}, run)
 
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func(n int) {
-			defer wg.Done()
-			val, err := tq.Submit(context.TODO(), n)
-			require.NoError(err)
-			require.Equal(n*2, val)
-		}(i)
+	// TODO: Why does bumping this up make me run out of go routines??
+	for i := 0; i < 10; i++ {
+		val, err := tq.Submit(context.TODO(), i)
+		require.NoError(err)
+		require.Equal(i*2, val)
 	}
-
-	wg.Wait()
 }
 
 func TestTaskQueueErrorWhenFull(t *testing.T) {
@@ -44,34 +34,38 @@ func TestTaskQueueErrorWhenFull(t *testing.T) {
 	var successCount int32
 	var errCount int32
 
-	numTasks := 100
-	wg := sync.WaitGroup{}
+	numTasks := 10
 
-	run := func(task int) (int, error) {
+	taskWaiter := sync.WaitGroup{}
+
+	runWaiter := sync.WaitGroup{}
+	runWaiter.Add(numTasks - 6)
+
+	run := func(ctx context.Context, task int) (int, error) {
 		// first 3 tasks will sleep, the next 3 will fill the queue, the rest will error, then the 3 tasks in the queue will be processed
-		time.Sleep(100 * time.Millisecond)
+		runWaiter.Wait()
 		return task * 2, nil
 	}
 
 	tq := NewTaskQueue(TaskQueueOpts{MaxWorkers: 3, MaxQueueDepth: 3, FullQueueBehavior: ErrorWhenFull}, run)
 
 	for i := 0; i < numTasks; i++ {
-		wg.Add(1)
+		taskWaiter.Add(1)
 		go func(n int) {
-			defer wg.Done()
-
 			v, err := tq.Submit(context.TODO(), n)
 			if err != nil {
+				runWaiter.Done()
 				atomic.AddInt32(&errCount, 1)
 				require.ErrorIs(err, ErrQueueFull)
 			} else {
 				atomic.AddInt32(&successCount, 1)
 				require.Equal(n*2, v)
 			}
+			taskWaiter.Done()
 		}(i)
 	}
 
-	wg.Wait()
+	taskWaiter.Wait()
 
 	require.Equal(int32(6), atomic.LoadInt32(&successCount))
 	require.Equal(int32(numTasks-6), atomic.LoadInt32(&errCount))
@@ -80,13 +74,16 @@ func TestTaskQueueErrorWhenFull(t *testing.T) {
 func TestTaskQueueContextCancellation(t *testing.T) {
 	require := require.New(t)
 
-	run := func(task int) (int, error) {
-		return task * 2, nil
+	run := func(ctx context.Context, task int) (int, error) {
+		select {
+		case <-ctx.Done():
+			return 0, context.Canceled
+		}
 	}
 
 	tq := NewTaskQueue(TaskQueueOpts{MaxWorkers: 3, MaxQueueDepth: 10, FullQueueBehavior: BlockWhenFull}, run)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 

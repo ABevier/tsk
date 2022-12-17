@@ -2,8 +2,6 @@ package taskqueue
 
 import (
 	"context"
-	"log"
-	"sync"
 
 	"github.com/abevier/tsk/futures"
 )
@@ -36,11 +34,10 @@ type TaskQueue[T any, R any] struct {
 	submit submitStrategy[T, R]
 }
 
-type RunFunction[T any, R any] func(task T) (R, error)
+type RunFunction[T any, R any] func(ctx context.Context, task T) (R, error)
 
 func NewTaskQueue[T any, R any](opts TaskQueueOpts, run RunFunction[T, R]) *TaskQueue[T, R] {
 	taskChan := make(chan taskFuture[T, R], opts.MaxQueueDepth)
-	waitStop := sync.WaitGroup{}
 
 	tq := &TaskQueue[T, R]{
 		run:      run,
@@ -54,7 +51,6 @@ func NewTaskQueue[T any, R any](opts TaskQueueOpts, run RunFunction[T, R]) *Task
 	}
 
 	for i := 0; i < opts.MaxWorkers; i++ {
-		waitStop.Add(1)
 		go tq.worker(i)
 	}
 
@@ -69,12 +65,10 @@ func (tq *TaskQueue[T, R]) worker(workerNum int) {
 				return
 			}
 
-			//TODO: check if context was cancelled before calling the function
-
 			//TODO: instead of trying to log in the library add TSK_WORKER_ID to the context
-			log.Printf("Running task on worker %d", workerNum)
+			//log.Printf("Running task on worker %d", workerNum)
 
-			res, err := tq.run(tf.task)
+			res, err := tq.run(tf.future.Ctx(), tf.task)
 			if err != nil {
 				tf.future.Fail(err)
 			}

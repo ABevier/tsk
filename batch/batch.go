@@ -78,6 +78,7 @@ func (be *BatchExecutor[T, R]) do(taskChan <-chan taskFuture[T, R]) {
 					currentBatch = nil
 					t.Reset(be.maxLinger)
 				}
+
 			case ft := <-taskChan:
 				if currentBatch == nil {
 					// open a new batch since once doesn't exist
@@ -92,7 +93,6 @@ func (be *BatchExecutor[T, R]) do(taskChan <-chan taskFuture[T, R]) {
 				}
 
 				size := currentBatch.add(ft.task, ft.future)
-
 				if size >= be.maxSize {
 					// flush the batch due to size
 					go be.runBatch(currentBatch)
