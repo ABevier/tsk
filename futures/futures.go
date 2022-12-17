@@ -16,34 +16,18 @@ type Future[T any] struct {
 	isCompleted uint32
 	completed   chan struct{}
 
-	ctx   context.Context
 	value T
 	err   error
 }
 
-func New[T any](ctx context.Context) *Future[T] {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	f := &Future[T]{
-		ctx:       ctx,
+func New[T any]() *Future[T] {
+	return &Future[T]{
 		completed: make(chan struct{}),
 	}
-
-	go func() {
-		select {
-		case <-ctx.Done():
-			f.internalComplete(*new(T), context.Canceled)
-		case <-f.completed:
-		}
-	}()
-
-	return f
 }
 
-func FromFunc[T any](ctx context.Context, do FutureFunc[T]) *Future[T] {
-	f := New[T](ctx)
+func FromFunc[T any](do FutureFunc[T]) *Future[T] {
+	f := New[T]()
 
 	go func() {
 		t, err := do()
@@ -54,10 +38,6 @@ func FromFunc[T any](ctx context.Context, do FutureFunc[T]) *Future[T] {
 	}()
 
 	return f
-}
-
-func (f *Future[T]) Ctx() context.Context {
-	return f.ctx
 }
 
 func (f *Future[T]) Complete(value T) {

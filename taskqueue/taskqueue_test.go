@@ -20,11 +20,12 @@ func TestTaskQueue(t *testing.T) {
 
 	tq := NewTaskQueue(TaskQueueOpts{MaxWorkers: 3, MaxQueueDepth: 10, FullQueueBehavior: BlockWhenFull}, run)
 
-	// TODO: Why does bumping this up make me run out of go routines??
-	for i := 0; i < 10; i++ {
-		val, err := tq.Submit(context.TODO(), i)
-		require.NoError(err)
-		require.Equal(i*2, val)
+	for i := 0; i < 100; i++ {
+		go func(n int) {
+			val, err := tq.Submit(context.Background(), n)
+			require.NoError(err)
+			require.Equal(n*2, val)
+		}(i)
 	}
 }
 

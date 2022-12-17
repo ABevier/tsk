@@ -21,6 +21,7 @@ type TaskQueueOpts struct {
 }
 
 type taskFuture[T any, R any] struct {
+	ctx    context.Context
 	task   T
 	future *futures.Future[R]
 }
@@ -68,7 +69,7 @@ func (tq *TaskQueue[T, R]) worker(workerNum int) {
 			//TODO: instead of trying to log in the library add TSK_WORKER_ID to the context
 			//log.Printf("Running task on worker %d", workerNum)
 
-			res, err := tq.run(tf.future.Ctx(), tf.task)
+			res, err := tq.run(tf.ctx, tf.task)
 			if err != nil {
 				tf.future.Fail(err)
 			}
@@ -86,8 +87,8 @@ func (tq *TaskQueue[T, R]) Submit(ctx context.Context, task T) (R, error) {
 }
 
 func (tq *TaskQueue[T, R]) SubmitF(ctx context.Context, task T) (*futures.Future[R], error) {
-	future := futures.New[R](ctx)
-	tf := taskFuture[T, R]{task: task, future: future}
+	future := futures.New[R]()
+	tf := taskFuture[T, R]{ctx: ctx, task: task, future: future}
 
 	if err := tq.submit(tq.taskChan, tf); err != nil {
 		return nil, err

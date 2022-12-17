@@ -16,7 +16,7 @@ var (
 func TestFuture(t *testing.T) {
 	require := require.New(t)
 
-	f := New[int](nil)
+	f := New[int]()
 
 	go func() {
 		time.Sleep(10 * time.Millisecond)
@@ -33,7 +33,7 @@ func TestFuture(t *testing.T) {
 func TestFromFunc(t *testing.T) {
 	require := require.New(t)
 
-	f := FromFunc(context.Background(), func() (int, error) {
+	f := FromFunc(func() (int, error) {
 		time.Sleep(10 * time.Millisecond)
 		return 42, nil
 	})
@@ -42,7 +42,7 @@ func TestFromFunc(t *testing.T) {
 	require.NoError(err)
 	require.Equal(42, r)
 
-	f = FromFunc(context.Background(), func() (int, error) {
+	f = FromFunc(func() (int, error) {
 		time.Sleep(10 * time.Millisecond)
 		return 0, ErrTest
 	})
@@ -54,7 +54,7 @@ func TestFromFunc(t *testing.T) {
 func TestComplete(t *testing.T) {
 	require := require.New(t)
 
-	f := New[int](context.Background())
+	f := New[int]()
 
 	for i := 0; i <= 1000; i++ {
 		go func() {
@@ -70,7 +70,7 @@ func TestComplete(t *testing.T) {
 func TestCancel(t *testing.T) {
 	require := require.New(t)
 
-	f := New[int](context.Background())
+	f := New[int]()
 
 	for i := 0; i <= 1000; i++ {
 		go func() {
@@ -86,7 +86,7 @@ func TestCancel(t *testing.T) {
 func TestFail(t *testing.T) {
 	require := require.New(t)
 
-	f := New[int](context.Background())
+	f := New[int]()
 
 	for i := 0; i <= 1000; i++ {
 		go func() {
@@ -102,23 +102,8 @@ func TestFail(t *testing.T) {
 func TestCancelOnGet(t *testing.T) {
 	require := require.New(t)
 
-	f := New[int](context.Background())
+	f := New[int]()
 	ctx, cancel := context.WithCancel(context.Background())
-
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		cancel()
-	}()
-
-	_, err := f.Get(ctx)
-	require.ErrorIs(err, context.Canceled)
-}
-
-func TestCancelingContextOnFuture(t *testing.T) {
-	require := require.New(t)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	f := New[int](ctx)
 
 	go func() {
 		time.Sleep(10 * time.Millisecond)

@@ -54,12 +54,12 @@ func NewExecutor[T any, R any](opts BatchOpts, run RunBatchFunction[T, R]) *Batc
 }
 
 func (be *BatchExecutor[T, R]) Submit(ctx context.Context, task T) (R, error) {
-	f := be.SubmitF(ctx, task)
+	f := be.SubmitF(task)
 	return f.Get(ctx)
 }
 
-func (be *BatchExecutor[T, R]) SubmitF(ctx context.Context, task T) *futures.Future[R] {
-	future := futures.New[R](ctx)
+func (be *BatchExecutor[T, R]) SubmitF(task T) *futures.Future[R] {
+	future := futures.New[R]()
 	be.taskChan <- taskFuture[T, R]{task: task, future: future}
 	return future
 }
