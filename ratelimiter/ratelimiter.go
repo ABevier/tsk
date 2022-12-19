@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/abevier/tsk/futures"
+	"github.com/abevier/tsk/internal/submit"
 	"golang.org/x/time/rate"
 )
 
@@ -11,36 +12,35 @@ type RunFunction[T any, R any] func(ctx context.Context, task T) (R, error)
 
 type RateLimiter[T any, R any] struct {
 	limiter  *rate.Limiter
-	taskChan chan (taskFuture[T, R])
+	taskChan chan (submit.TaskFuture[T, R])
 
-	run RunFunction[T, R]
+	submit submit.SubmitFunction[T, R]
+	run    RunFunction[T, R]
 }
 
-type taskFuture[T any, R any] struct {
-	ctx    context.Context
-	task   T
-	future *futures.Future[R]
-}
-
-func New[T any, R any](limit rate.Limit, burst int, run RunFunction[T, R]) *RateLimiter[T, R] {
+func New[T any, R any](opts RateLimiterOpts, run RunFunction[T, R]) *RateLimiter[T, R] {
 	rl := &RateLimiter[T, R]{
-		limiter:  rate.NewLimiter(limit, burst),
-		taskChan: make(chan taskFuture[T, R]),
+		limiter:  rate.NewLimiter(rate.Limit(opts.Limit), opts.Burst),
+		taskChan: make(chan submit.TaskFuture[T, R], opts.MaxQueueDepth),
+		submit:   submit.GetSubmitFunction[T, R](submit.FullQueueStrategy(opts.FullQueueStrategy)),
 		run:      run,
 	}
 
-	rl.worker()
+	rl.startWorker()
 
 	return rl
 }
 
-func (rl *RateLimiter[T, R]) worker() {
+func (rl *RateLimiter[T, R]) startWorker() {
 	go func() {
 		for {
-			tf := <-rl.taskChan
+			tf, ok := <-rl.taskChan
+			if !ok {
+				return
+			}
 
-			if err := rl.limiter.Wait(tf.ctx); err != nil {
-				tf.future.Fail(err)
+			if err := rl.limiter.Wait(tf.Ctx); err != nil {
+				tf.Future.Fail(err)
 				continue
 			}
 
@@ -49,14 +49,14 @@ func (rl *RateLimiter[T, R]) worker() {
 	}()
 }
 
-func (rl *RateLimiter[T, R]) runTask(tf taskFuture[T, R]) {
+func (rl *RateLimiter[T, R]) runTask(tf submit.TaskFuture[T, R]) {
 	go func() {
-		r, err := rl.run(tf.ctx, tf.task)
+		r, err := rl.run(tf.Ctx, tf.Task)
 		if err != nil {
-			tf.future.Fail(err)
+			tf.Future.Fail(err)
 			return
 		}
-		tf.future.Complete(r)
+		tf.Future.Complete(r)
 	}()
 }
 
@@ -66,9 +66,12 @@ func (rl *RateLimiter[T, R]) Submit(ctx context.Context, task T) (R, error) {
 }
 
 func (rl *RateLimiter[T, R]) SubmitF(ctx context.Context, task T) *futures.Future[R] {
-	future := futures.New[R]()
-	tf := taskFuture[T, R]{ctx: ctx, task: task, future: future}
+	tf := submit.NewTaskFuture[T, R](ctx, task)
+	rl.submit(rl.taskChan, tf)
+	return tf.Future
+}
 
-	rl.taskChan <- tf
-	return future
+// WARNING If this is called twice or Submit is called after calling Close it will panic
+func (rl *RateLimiter[T, R]) Close() {
+	close(rl.taskChan)
 }

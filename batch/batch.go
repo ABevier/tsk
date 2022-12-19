@@ -6,13 +6,9 @@ import (
 	"time"
 
 	"github.com/abevier/tsk/futures"
+	"github.com/abevier/tsk/internal/submit"
 	"github.com/abevier/tsk/results"
 )
-
-type BatchOpts struct {
-	MaxSize   int
-	MaxLinger time.Duration
-}
 
 type RunBatchFunction[T any, R any] func(tasks []T) ([]results.Result[R], error)
 
@@ -28,15 +24,10 @@ func (b *batch[T, R]) add(task T, future *futures.Future[R]) int {
 	return len(b.tasks)
 }
 
-type taskFuture[T any, R any] struct {
-	task   T
-	future *futures.Future[R]
-}
-
 type BatchExecutor[T any, R any] struct {
 	maxSize   int
 	maxLinger time.Duration
-	taskChan  chan taskFuture[T, R]
+	taskChan  chan submit.TaskFuture[T, R]
 	run       RunBatchFunction[T, R]
 }
 
@@ -44,11 +35,11 @@ func NewExecutor[T any, R any](opts BatchOpts, run RunBatchFunction[T, R]) *Batc
 	be := &BatchExecutor[T, R]{
 		maxSize:   opts.MaxSize,
 		maxLinger: opts.MaxLinger,
-		taskChan:  make(chan taskFuture[T, R]),
+		taskChan:  make(chan submit.TaskFuture[T, R]),
 		run:       run,
 	}
 
-	be.do(be.taskChan)
+	be.startWorker(be.taskChan)
 
 	return be
 }
@@ -60,11 +51,11 @@ func (be *BatchExecutor[T, R]) Submit(ctx context.Context, task T) (R, error) {
 
 func (be *BatchExecutor[T, R]) SubmitF(task T) *futures.Future[R] {
 	future := futures.New[R]()
-	be.taskChan <- taskFuture[T, R]{task: task, future: future}
+	be.taskChan <- submit.TaskFuture[T, R]{Task: task, Future: future}
 	return future
 }
 
-func (be *BatchExecutor[T, R]) do(taskChan <-chan taskFuture[T, R]) {
+func (be *BatchExecutor[T, R]) startWorker(taskChan <-chan submit.TaskFuture[T, R]) {
 	go func() {
 		var currentBatch *batch[T, R]
 		t := time.NewTimer(math.MaxInt64)
@@ -79,7 +70,14 @@ func (be *BatchExecutor[T, R]) do(taskChan <-chan taskFuture[T, R]) {
 					t.Reset(be.maxLinger)
 				}
 
-			case ft := <-taskChan:
+			case ft, ok := <-taskChan:
+				if !ok {
+					if !t.Stop() {
+						<-t.C
+					}
+					return
+				}
+
 				if currentBatch == nil {
 					// open a new batch since once doesn't exist
 					currentBatch = &batch[T, R]{
@@ -92,7 +90,7 @@ func (be *BatchExecutor[T, R]) do(taskChan <-chan taskFuture[T, R]) {
 					t.Reset(be.maxLinger)
 				}
 
-				size := currentBatch.add(ft.task, ft.future)
+				size := currentBatch.add(ft.Task, ft.Future)
 				if size >= be.maxSize {
 					// flush the batch due to size
 					go be.runBatch(currentBatch)
@@ -131,4 +129,9 @@ func (be *BatchExecutor[T, R]) runBatch(b *batch[T, R]) {
 			b.futures[i].Complete(r.Val)
 		}
 	}
+}
+
+// WARNING If this is called twice or Submit is called after calling Close it will panic
+func (be *BatchExecutor[T, R]) Close() {
+	close(be.taskChan)
 }

@@ -4,78 +4,50 @@ import (
 	"context"
 
 	"github.com/abevier/tsk/futures"
+	"github.com/abevier/tsk/internal/submit"
 )
-
-type FullQueueBehavior int
-
-const (
-	BlockWhenFull FullQueueBehavior = iota
-	ErrorWhenFull
-)
-
-type TaskQueueOpts struct {
-	MaxWorkers    int
-	MaxQueueDepth int
-	//TODO: better name?
-	FullQueueBehavior FullQueueBehavior
-}
-
-type taskFuture[T any, R any] struct {
-	ctx    context.Context
-	task   T
-	future *futures.Future[R]
-}
-
-type submitStrategy[T any, R any] func(taskChan chan<- taskFuture[T, R], tf taskFuture[T, R]) error
-
-type TaskQueue[T any, R any] struct {
-	run      RunFunction[T, R]
-	taskChan chan taskFuture[T, R]
-
-	submit submitStrategy[T, R]
-}
 
 type RunFunction[T any, R any] func(ctx context.Context, task T) (R, error)
 
+type TaskQueue[T any, R any] struct {
+	run      RunFunction[T, R]
+	taskChan chan submit.TaskFuture[T, R]
+
+	submit submit.SubmitFunction[T, R]
+}
+
 func NewTaskQueue[T any, R any](opts TaskQueueOpts, run RunFunction[T, R]) *TaskQueue[T, R] {
-	taskChan := make(chan taskFuture[T, R], opts.MaxQueueDepth)
+	taskChan := make(chan submit.TaskFuture[T, R], opts.MaxQueueDepth)
 
 	tq := &TaskQueue[T, R]{
 		run:      run,
 		taskChan: taskChan,
-	}
-
-	if opts.FullQueueBehavior == BlockWhenFull {
-		tq.submit = submitBlockWhenFull[T, R]
-	} else {
-		tq.submit = submitErrorWhenFull[T, R]
+		submit:   submit.GetSubmitFunction[T, R](submit.FullQueueStrategy(opts.FullQueueStrategy)),
 	}
 
 	for i := 0; i < opts.MaxWorkers; i++ {
-		go tq.worker(i)
+		tq.startWorker(i)
 	}
 
 	return tq
 }
 
-func (tq *TaskQueue[T, R]) worker(workerNum int) {
-	for {
-		select {
-		case tf, ok := <-tq.taskChan:
+func (tq *TaskQueue[T, R]) startWorker(workerNum int) {
+	go func() {
+		for {
+			tf, ok := <-tq.taskChan
 			if !ok {
 				return
 			}
 
-			//TODO: instead of trying to log in the library add TSK_WORKER_ID to the context
-			//log.Printf("Running task on worker %d", workerNum)
-
-			res, err := tq.run(tf.ctx, tf.task)
+			ctx := withWorkerID(tf.Ctx, workerNum)
+			res, err := tq.run(ctx, tf.Task)
 			if err != nil {
-				tf.future.Fail(err)
+				tf.Future.Fail(err)
 			}
-			tf.future.Complete(res)
+			tf.Future.Complete(res)
 		}
-	}
+	}()
 }
 
 func (tq *TaskQueue[T, R]) Submit(ctx context.Context, task T) (R, error) {
@@ -87,26 +59,16 @@ func (tq *TaskQueue[T, R]) Submit(ctx context.Context, task T) (R, error) {
 }
 
 func (tq *TaskQueue[T, R]) SubmitF(ctx context.Context, task T) (*futures.Future[R], error) {
-	future := futures.New[R]()
-	tf := taskFuture[T, R]{ctx: ctx, task: task, future: future}
+	tf := submit.NewTaskFuture[T, R](ctx, task)
 
 	if err := tq.submit(tq.taskChan, tf); err != nil {
 		return nil, err
 	}
 
-	return future, nil
+	return tf.Future, nil
 }
 
-func submitBlockWhenFull[T any, R any](taskChan chan<- taskFuture[T, R], t taskFuture[T, R]) error {
-	taskChan <- t
-	return nil
-}
-
-func submitErrorWhenFull[T any, R any](taskChan chan<- taskFuture[T, R], t taskFuture[T, R]) error {
-	select {
-	case taskChan <- t:
-		return nil
-	default:
-		return ErrQueueFull
-	}
+// WARNING If this is called twice or Submit is called after calling Close it will panic
+func (tq *TaskQueue[T, R]) Close() {
+	close(tq.taskChan)
 }

@@ -17,7 +17,7 @@ func TestRateLimiter(t *testing.T) {
 		return n * 2, nil
 	}
 
-	rl := New(10, 1, run)
+	rl := New(RateLimiterOpts{Limit: 10, Burst: 1, FullQueueStrategy: BlockWhenFull}, run)
 
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
