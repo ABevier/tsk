@@ -2,7 +2,6 @@ package ratelimiter
 
 import (
 	"context"
-	"log"
 	"sync"
 	"testing"
 
@@ -15,13 +14,12 @@ func TestRateLimiter(t *testing.T) {
 	wg := sync.WaitGroup{}
 
 	run := func(ctx context.Context, n int) (int, error) {
-		log.Printf("processing request: %d", n)
 		return n * 2, nil
 	}
 
 	rl := New(10, 1, run)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
