@@ -29,6 +29,7 @@ func TestTaskQueue(t *testing.T) {
 	}
 }
 
+//TODO: REDO THIS TEST, THERE IS A RACE
 func TestTaskQueueErrorWhenFull(t *testing.T) {
 	require := require.New(t)
 
