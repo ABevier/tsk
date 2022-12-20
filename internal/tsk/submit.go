@@ -3,7 +3,7 @@ package tsk
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
 )
 
 var (
@@ -26,9 +26,8 @@ func GetSubmitFunction[T any, R any](s FullQueueStrategy) SubmitFunction[T, R] {
 	case ErrorWhenFull:
 		return errorWhenFullStrategy[T, R]
 	default:
-		log.Panicf("invalid submit strategy value %d", s)
+		panic(fmt.Sprintf("invalid submit strategy value %d", s))
 	}
-	return blockWhenFullStrategy[T, R]
 }
 
 func blockWhenFullStrategy[T any, R any](taskChan chan<- TaskFuture[T, R], t TaskFuture[T, R]) error {

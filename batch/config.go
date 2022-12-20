@@ -8,5 +8,11 @@ type BatchOpts struct {
 }
 
 func (o BatchOpts) validate() {
-	// TODO
+	if o.MaxSize <= 1 {
+		panic("maximum batch size must be greater than 1")
+	}
+
+	if o.MaxLinger <= 0 {
+		panic("batch linger must be greater than 0")
+	}
 }

@@ -3,6 +3,7 @@ package batch
 import (
 	"context"
 	"errors"
+	"math"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -35,7 +36,7 @@ func TestBatch(t *testing.T) {
 		return rs, nil
 	}
 
-	be := NewExecutor(BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond}, run)
+	be := NewExecutor(BatchOpts{MaxSize: 3, MaxLinger: time.Millisecond}, run)
 
 	for i := 0; i < itemCount; i++ {
 		go func(val int) {
@@ -48,6 +49,7 @@ func TestBatch(t *testing.T) {
 	}
 
 	wg.Wait()
+	be.Close()
 
 	require.Equal(itemCount, int(actualCount))
 }
@@ -62,7 +64,7 @@ func TestBatchFailure(t *testing.T) {
 		return nil, ErrTest
 	}
 
-	be := NewExecutor(BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond}, run)
+	be := NewExecutor(BatchOpts{MaxSize: 3, MaxLinger: 10 * time.Millisecond}, run)
 
 	for i := 0; i < itemCount; i++ {
 		wg.Add(1)
@@ -74,6 +76,7 @@ func TestBatchFailure(t *testing.T) {
 	}
 
 	wg.Wait()
+	be.Close()
 }
 
 func TestSubmitCancellation(t *testing.T) {
@@ -87,11 +90,13 @@ func TestSubmitCancellation(t *testing.T) {
 		return rs, nil
 	}
 
-	be := NewExecutor(BatchOpts{MaxSize: 3, MaxLinger: 100 * time.Millisecond}, run)
+	be := NewExecutor(BatchOpts{MaxSize: 3, MaxLinger: math.MaxInt64}, run)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel the context before submitting
 
 	_, err := be.Submit(ctx, 5)
 	require.ErrorIs(err, context.Canceled)
+
+	be.Close()
 }
