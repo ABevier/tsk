@@ -1,6 +1,15 @@
 package taskqueue
 
-import "github.com/abevier/tsk/internal/tsk"
+import (
+	"errors"
+
+	"github.com/abevier/tsk/internal/tsk"
+)
+
+var (
+	ErrQueueFull = tsk.ErrQueueFull
+	ErrStopped   = errors.New("task queue has been stopped")
+)
 
 type FullQueueStrategy tsk.FullQueueStrategy
 
@@ -16,5 +25,11 @@ type TaskQueueOpts struct {
 }
 
 func (o TaskQueueOpts) validate() {
+	if o.MaxWorkers <= 0 {
+		panic("task queue max workers must be greater than 0")
+	}
 
+	if o.MaxQueueDepth < 0 {
+		panic("task queue max queue depth must be 0 or greater")
+	}
 }

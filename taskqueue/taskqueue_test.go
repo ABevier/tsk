@@ -2,9 +2,9 @@ package taskqueue
 
 import (
 	"context"
-	"math/rand"
+	"strconv"
+	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -12,73 +12,39 @@ import (
 func TestTaskQueue(t *testing.T) {
 	require := require.New(t)
 
+	maxWorkers := 3
+	wg := sync.WaitGroup{}
+
 	run := func(ctx context.Context, task int) (int, error) {
+		workerId, ok := WorkerIDFromContext(ctx)
+		require.True(ok)
+		require.True(isValidWorkerID(workerId, maxWorkers))
 		return task * 2, nil
 	}
 
-	tq := NewTaskQueue(TaskQueueOpts{MaxWorkers: 3, MaxQueueDepth: 10, FullQueueStrategy: BlockWhenFull}, run)
+	tq := NewTaskQueue(TaskQueueOpts{MaxWorkers: maxWorkers, MaxQueueDepth: 10}, run)
 
 	for i := 0; i < 100; i++ {
+		wg.Add(1)
 		go func(n int) {
+			defer wg.Done()
+
 			val, err := tq.Submit(context.Background(), n)
 			require.NoError(err)
 			require.Equal(n*2, val)
 		}(i)
 	}
+
+	wg.Wait()
+	tq.Close()
 }
-
-//TODO: REDO THIS TEST, THERE IS A RACE
-// func TestTaskQueueErrorWhenFull(t *testing.T) {
-// 	require := require.New(t)
-
-// 	var successCount int32
-// 	var errCount int32
-
-// 	numTasks := 10
-
-// 	taskWaiter := sync.WaitGroup{}
-
-// 	runWaiter := sync.WaitGroup{}
-// 	runWaiter.Add(numTasks - 6)
-
-// 	run := func(ctx context.Context, task int) (int, error) {
-// 		// first 3 tasks will sleep, the next 3 will fill the queue, the rest will error, then the 3 tasks in the queue will be processed
-// 		runWaiter.Wait()
-// 		return task * 2, nil
-// 	}
-
-// 	tq := NewTaskQueue(TaskQueueOpts{MaxWorkers: 3, MaxQueueDepth: 3, FullQueueStrategy: ErrorWhenFull}, run)
-
-// 	for i := 0; i < numTasks; i++ {
-// 		taskWaiter.Add(1)
-// 		go func(n int) {
-// 			v, err := tq.Submit(context.TODO(), n)
-// 			if err != nil {
-// 				runWaiter.Done()
-// 				atomic.AddInt32(&errCount, 1)
-// 				require.ErrorIs(err, ErrQueueFull)
-// 			} else {
-// 				atomic.AddInt32(&successCount, 1)
-// 				require.Equal(n*2, v)
-// 			}
-// 			taskWaiter.Done()
-// 		}(i)
-// 	}
-
-// 	taskWaiter.Wait()
-
-// 	require.Equal(int32(6), atomic.LoadInt32(&successCount))
-// 	require.Equal(int32(numTasks-6), atomic.LoadInt32(&errCount))
-// }
 
 func TestTaskQueueContextCancellation(t *testing.T) {
 	require := require.New(t)
 
 	run := func(ctx context.Context, task int) (int, error) {
-		select {
-		case <-ctx.Done():
-			return 0, context.Canceled
-		}
+		<-ctx.Done()
+		return 0, context.Canceled
 	}
 
 	tq := NewTaskQueue(TaskQueueOpts{MaxWorkers: 3, MaxQueueDepth: 10, FullQueueStrategy: BlockWhenFull}, run)
@@ -92,7 +58,11 @@ func TestTaskQueueContextCancellation(t *testing.T) {
 	}
 }
 
-func randWait(min, max int) time.Duration {
-	n := rand.Intn(max-min) + min
-	return time.Duration(n) * time.Millisecond
+func isValidWorkerID(id string, maxWorkers int) bool {
+	for i := 0; i < maxWorkers; i++ {
+		if id == "worker-"+strconv.Itoa(i) {
+			return true
+		}
+	}
+	return false
 }
