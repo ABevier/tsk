@@ -124,7 +124,7 @@ func (be *BatchExecutor[T, R]) runBatch(b *batch[T, R]) {
 
 	for i, r := range res {
 		if r.Err != nil {
-			b.futures[i].Fail(err)
+			b.futures[i].Fail(r.Err)
 		} else {
 			b.futures[i].Complete(r.Val)
 		}

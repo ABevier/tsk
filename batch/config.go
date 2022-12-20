@@ -1,6 +1,13 @@
 package batch
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var (
+	ErrBatchResultMismatch = errors.New("the batch function did not return the correct number of responses")
+)
 
 type BatchOpts struct {
 	MaxSize   int

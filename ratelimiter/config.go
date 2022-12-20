@@ -33,5 +33,15 @@ type RateLimiterOpts struct {
 }
 
 func (o RateLimiterOpts) validate() {
-	//TODO:
+	if o.Limit < 0 {
+		panic("rate limiter limit must be 0 or greater")
+	}
+
+	if o.Burst < 1 {
+		panic("rate limiter burst must be 1 or greater")
+	}
+
+	if o.MaxQueueDepth < 0 {
+		panic("rate limiter max queue depth must be 0 or greater")
+	}
 }

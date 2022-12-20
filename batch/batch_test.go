@@ -22,29 +22,37 @@ func TestBatch(t *testing.T) {
 	itemCount := 10
 
 	wg := sync.WaitGroup{}
-	wg.Add(itemCount)
 
 	run := func(items []int) ([]results.Result[int], error) {
 		var rs []results.Result[int]
 
 		for _, n := range items {
-			r := results.Success(n * 2)
-			rs = append(rs, r)
+			if n == 5 {
+				rs = append(rs, results.Failure[int](ErrTest))
+			} else {
+				rs = append(rs, results.Success(n*2))
+			}
 			atomic.AddUint32(&actualCount, 1)
 		}
 
 		return rs, nil
 	}
 
-	be := NewExecutor(BatchOpts{MaxSize: 3, MaxLinger: time.Millisecond}, run)
+	be := NewExecutor(BatchOpts{MaxSize: 3, MaxLinger: 10 * time.Millisecond}, run)
 
 	for i := 0; i < itemCount; i++ {
-		go func(val int) {
-			res, err := be.Submit(context.TODO(), val)
-			require.NoError(err)
-			require.Equal(2*val, res)
+		wg.Add(1)
 
-			wg.Done()
+		go func(n int) {
+			defer wg.Done()
+
+			res, err := be.Submit(context.TODO(), n)
+			if n == 5 {
+				require.ErrorIs(err, ErrTest)
+				return
+			}
+			require.NoError(err)
+			require.Equal(2*n, res)
 		}(i)
 	}
 
@@ -98,5 +106,29 @@ func TestSubmitCancellation(t *testing.T) {
 	_, err := be.Submit(ctx, 5)
 	require.ErrorIs(err, context.Canceled)
 
+	be.Close()
+}
+
+func TestBadRunFunction(t *testing.T) {
+	require := require.New(t)
+
+	wg := sync.WaitGroup{}
+
+	run := func(items []int) ([]results.Result[int], error) {
+		return []results.Result[int]{}, nil
+	}
+
+	be := NewExecutor(BatchOpts{MaxSize: 3, MaxLinger: 10 * time.Millisecond}, run)
+
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func(n int) {
+			_, err := be.Submit(context.Background(), n)
+			require.ErrorIs(err, ErrBatchResultMismatch)
+			wg.Done()
+		}(i)
+	}
+
+	wg.Wait()
 	be.Close()
 }

@@ -38,3 +38,21 @@ func TestResolveAll(t *testing.T) {
 
 	require.Equal(expected, rs)
 }
+
+func TestResolveAllCancellation(t *testing.T) {
+	require := require.New(t)
+
+	f1 := New[int]()
+	f2 := New[int]()
+	f3 := New[int]()
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+
+	_, err := ResolveAll(ctx, []*Future[int]{f1, f2, f3})
+	require.ErrorIs(err, context.Canceled)
+}
