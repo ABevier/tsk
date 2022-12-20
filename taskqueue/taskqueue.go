@@ -4,25 +4,25 @@ import (
 	"context"
 
 	"github.com/abevier/tsk/futures"
-	"github.com/abevier/tsk/internal/submit"
+	"github.com/abevier/tsk/internal/tsk"
 )
 
 type RunFunction[T any, R any] func(ctx context.Context, task T) (R, error)
 
 type TaskQueue[T any, R any] struct {
 	run      RunFunction[T, R]
-	taskChan chan submit.TaskFuture[T, R]
+	taskChan chan tsk.TaskFuture[T, R]
 
-	submit submit.SubmitFunction[T, R]
+	submit tsk.SubmitFunction[T, R]
 }
 
 func NewTaskQueue[T any, R any](opts TaskQueueOpts, run RunFunction[T, R]) *TaskQueue[T, R] {
-	taskChan := make(chan submit.TaskFuture[T, R], opts.MaxQueueDepth)
+	taskChan := make(chan tsk.TaskFuture[T, R], opts.MaxQueueDepth)
 
 	tq := &TaskQueue[T, R]{
 		run:      run,
 		taskChan: taskChan,
-		submit:   submit.GetSubmitFunction[T, R](submit.FullQueueStrategy(opts.FullQueueStrategy)),
+		submit:   tsk.GetSubmitFunction[T, R](tsk.FullQueueStrategy(opts.FullQueueStrategy)),
 	}
 
 	for i := 0; i < opts.MaxWorkers; i++ {
@@ -59,7 +59,7 @@ func (tq *TaskQueue[T, R]) Submit(ctx context.Context, task T) (R, error) {
 }
 
 func (tq *TaskQueue[T, R]) SubmitF(ctx context.Context, task T) (*futures.Future[R], error) {
-	tf := submit.NewTaskFuture[T, R](ctx, task)
+	tf := tsk.NewTaskFuture[T, R](ctx, task)
 
 	if err := tq.submit(tq.taskChan, tf); err != nil {
 		return nil, err

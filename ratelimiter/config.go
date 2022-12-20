@@ -3,19 +3,19 @@ package ratelimiter
 import (
 	"time"
 
-	"github.com/abevier/tsk/internal/submit"
+	"github.com/abevier/tsk/internal/tsk"
 	"golang.org/x/time/rate"
 )
 
 var (
-	ErrQueueFull = submit.ErrQueueFull
+	ErrQueueFull = tsk.ErrQueueFull
 )
 
-type FullQueueStrategy submit.FullQueueStrategy
+type FullQueueStrategy tsk.FullQueueStrategy
 
 const (
-	BlockWhenFull FullQueueStrategy = FullQueueStrategy(submit.BlockWhenFull)
-	ErrorWhenFull FullQueueStrategy = FullQueueStrategy(submit.ErrorWhenFull)
+	BlockWhenFull FullQueueStrategy = FullQueueStrategy(tsk.BlockWhenFull)
+	ErrorWhenFull FullQueueStrategy = FullQueueStrategy(tsk.ErrorWhenFull)
 )
 
 type Limit = rate.Limit

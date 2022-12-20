@@ -1,12 +1,12 @@
 package taskqueue
 
-import "github.com/abevier/tsk/internal/submit"
+import "github.com/abevier/tsk/internal/tsk"
 
-type FullQueueStrategy submit.FullQueueStrategy
+type FullQueueStrategy tsk.FullQueueStrategy
 
 const (
-	BlockWhenFull FullQueueStrategy = FullQueueStrategy(submit.BlockWhenFull)
-	ErrorWhenFull FullQueueStrategy = FullQueueStrategy(submit.ErrorWhenFull)
+	BlockWhenFull FullQueueStrategy = FullQueueStrategy(tsk.BlockWhenFull)
+	ErrorWhenFull FullQueueStrategy = FullQueueStrategy(tsk.ErrorWhenFull)
 )
 
 type TaskQueueOpts struct {

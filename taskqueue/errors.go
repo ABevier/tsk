@@ -3,10 +3,10 @@ package taskqueue
 import (
 	"errors"
 
-	"github.com/abevier/tsk/internal/submit"
+	"github.com/abevier/tsk/internal/tsk"
 )
 
 var (
-	ErrQueueFull = submit.ErrQueueFull
+	ErrQueueFull = tsk.ErrQueueFull
 	ErrStopped   = errors.New("task queue has been stopped")
 )

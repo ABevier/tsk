@@ -10,6 +10,9 @@ func ResolveAll[T any](ctx context.Context, fs []*Future[T]) ([]results.Result[T
 	res := make([]results.Result[T], 0, len(fs))
 
 	for _, f := range fs {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		r, err := f.Get(ctx)
 		res = append(res, results.New(r, err))
 	}

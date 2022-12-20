@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/abevier/tsk/futures"
-	"github.com/abevier/tsk/internal/submit"
+	"github.com/abevier/tsk/internal/tsk"
 	"github.com/abevier/tsk/results"
 )
 
@@ -27,7 +27,7 @@ func (b *batch[T, R]) add(task T, future *futures.Future[R]) int {
 type BatchExecutor[T any, R any] struct {
 	maxSize   int
 	maxLinger time.Duration
-	taskChan  chan submit.TaskFuture[T, R]
+	taskChan  chan tsk.TaskFuture[T, R]
 	run       RunBatchFunction[T, R]
 }
 
@@ -35,7 +35,7 @@ func NewExecutor[T any, R any](opts BatchOpts, run RunBatchFunction[T, R]) *Batc
 	be := &BatchExecutor[T, R]{
 		maxSize:   opts.MaxSize,
 		maxLinger: opts.MaxLinger,
-		taskChan:  make(chan submit.TaskFuture[T, R]),
+		taskChan:  make(chan tsk.TaskFuture[T, R]),
 		run:       run,
 	}
 
@@ -51,11 +51,11 @@ func (be *BatchExecutor[T, R]) Submit(ctx context.Context, task T) (R, error) {
 
 func (be *BatchExecutor[T, R]) SubmitF(task T) *futures.Future[R] {
 	future := futures.New[R]()
-	be.taskChan <- submit.TaskFuture[T, R]{Task: task, Future: future}
+	be.taskChan <- tsk.TaskFuture[T, R]{Task: task, Future: future}
 	return future
 }
 
-func (be *BatchExecutor[T, R]) startWorker(taskChan <-chan submit.TaskFuture[T, R]) {
+func (be *BatchExecutor[T, R]) startWorker(taskChan <-chan tsk.TaskFuture[T, R]) {
 	go func() {
 		var currentBatch *batch[T, R]
 		t := time.NewTimer(math.MaxInt64)

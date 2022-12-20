@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/abevier/tsk/futures"
-	"github.com/abevier/tsk/internal/submit"
+	"github.com/abevier/tsk/internal/tsk"
 	"golang.org/x/time/rate"
 )
 
@@ -12,17 +12,17 @@ type RunFunction[T any, R any] func(ctx context.Context, task T) (R, error)
 
 type RateLimiter[T any, R any] struct {
 	limiter  *rate.Limiter
-	taskChan chan (submit.TaskFuture[T, R])
+	taskChan chan (tsk.TaskFuture[T, R])
 
-	submit submit.SubmitFunction[T, R]
+	submit tsk.SubmitFunction[T, R]
 	run    RunFunction[T, R]
 }
 
 func New[T any, R any](opts RateLimiterOpts, run RunFunction[T, R]) *RateLimiter[T, R] {
 	rl := &RateLimiter[T, R]{
 		limiter:  rate.NewLimiter(rate.Limit(opts.Limit), opts.Burst),
-		taskChan: make(chan submit.TaskFuture[T, R], opts.MaxQueueDepth),
-		submit:   submit.GetSubmitFunction[T, R](submit.FullQueueStrategy(opts.FullQueueStrategy)),
+		taskChan: make(chan tsk.TaskFuture[T, R], opts.MaxQueueDepth),
+		submit:   tsk.GetSubmitFunction[T, R](tsk.FullQueueStrategy(opts.FullQueueStrategy)),
 		run:      run,
 	}
 
@@ -49,7 +49,7 @@ func (rl *RateLimiter[T, R]) startWorker() {
 	}()
 }
 
-func (rl *RateLimiter[T, R]) runTask(tf submit.TaskFuture[T, R]) {
+func (rl *RateLimiter[T, R]) runTask(tf tsk.TaskFuture[T, R]) {
 	go func() {
 		r, err := rl.run(tf.Ctx, tf.Task)
 		if err != nil {
@@ -66,7 +66,7 @@ func (rl *RateLimiter[T, R]) Submit(ctx context.Context, task T) (R, error) {
 }
 
 func (rl *RateLimiter[T, R]) SubmitF(ctx context.Context, task T) *futures.Future[R] {
-	tf := submit.NewTaskFuture[T, R](ctx, task)
+	tf := tsk.NewTaskFuture[T, R](ctx, task)
 	rl.submit(rl.taskChan, tf)
 	return tf.Future
 }
