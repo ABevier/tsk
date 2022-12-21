@@ -1,3 +1,5 @@
+// Package taskqueue provides a taskqueue implementation that limits the concurrency of tasks to a maximum value
+// usually to avoid overwhelming external systems.
 package taskqueue
 
 import (
@@ -7,8 +9,10 @@ import (
 	"github.com/abevier/tsk/internal/tsk"
 )
 
+//
 type RunFunction[T any, R any] func(ctx context.Context, task T) (R, error)
 
+//
 type TaskQueue[T any, R any] struct {
 	run      RunFunction[T, R]
 	taskChan chan tsk.TaskFuture[T, R]
@@ -16,6 +20,7 @@ type TaskQueue[T any, R any] struct {
 	submit tsk.SubmitFunction[T, R]
 }
 
+//
 func NewTaskQueue[T any, R any](opts Opts, run RunFunction[T, R]) *TaskQueue[T, R] {
 	taskChan := make(chan tsk.TaskFuture[T, R], opts.MaxQueueDepth)
 
@@ -50,11 +55,13 @@ func (tq *TaskQueue[T, R]) startWorker(workerNum int) {
 	}()
 }
 
+//
 func (tq *TaskQueue[T, R]) Submit(ctx context.Context, task T) (R, error) {
 	f := tq.SubmitF(ctx, task)
 	return f.Get(ctx)
 }
 
+//
 func (tq *TaskQueue[T, R]) SubmitF(ctx context.Context, task T) *futures.Future[R] {
 	tf := tsk.NewTaskFuture[T, R](ctx, task)
 	if err := tq.submit(tq.taskChan, tf); err != nil {
@@ -63,7 +70,8 @@ func (tq *TaskQueue[T, R]) SubmitF(ctx context.Context, task T) *futures.Future[
 	return tf.Future
 }
 
-// WARNING If this is called twice or Submit is called after calling Close it will panic
+// Close closes the TaskQueue's underlying channel.  It is the responsibility of the caller to ensure
+// that no writers are still calling Submit or SubmitF as this will cause a panic.
 func (tq *TaskQueue[T, R]) Close() {
 	close(tq.taskChan)
 }

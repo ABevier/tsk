@@ -8,6 +8,7 @@ import (
 )
 
 var (
+	// ErrQueueFull is the error returned when the FullQueueStrategy is ErrorWhenFull and MaxQueueDepth is exceeded
 	ErrQueueFull = tsk.ErrQueueFull
 )
 
@@ -36,7 +37,7 @@ type Opts struct {
 	Limit Limit
 	// Burst is the size of the Token Bucket
 	Burst int
-	// MaxQueueDepth controls the number of outstanding tasks that can be submitted to the rate limiter.
+	// MaxQueueDepth controls the maximum number of outstanding tasks that can be submitted to the rate limiter.
 	MaxQueueDepth int
 	// FullQueueStategy determines the rate limiter's behavior when the MaxQueueDepth is exceeded.
 	// By default the rate limiter will block the caller.
