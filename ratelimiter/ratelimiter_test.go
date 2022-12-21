@@ -25,7 +25,7 @@ func TestRateLimiter(t *testing.T) {
 		return n * 2, nil
 	}
 
-	rl := New(RateLimiterOpts{Limit: 100, Burst: 1, FullQueueStrategy: BlockWhenFull}, run)
+	rl := New(Opts{Limit: 100, Burst: 1, FullQueueStrategy: BlockWhenFull}, run)
 
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -58,7 +58,7 @@ func TestRateLimiterDeadlineError(t *testing.T) {
 	}
 
 	// Rate limit is extremely slow so deadlines will expire
-	rl := New(RateLimiterOpts{Limit: Every(10 * time.Minute), Burst: 1, FullQueueStrategy: BlockWhenFull}, run)
+	rl := New(Opts{Limit: Every(10 * time.Minute), Burst: 1, FullQueueStrategy: BlockWhenFull}, run)
 
 	for i := 0; i < 5; i++ {
 		wg.Add(1)

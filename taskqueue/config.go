@@ -18,13 +18,13 @@ const (
 	ErrorWhenFull FullQueueStrategy = FullQueueStrategy(tsk.ErrorWhenFull)
 )
 
-type TaskQueueOpts struct {
+type Opts struct {
 	MaxWorkers        int
 	MaxQueueDepth     int
 	FullQueueStrategy FullQueueStrategy
 }
 
-func (o TaskQueueOpts) validate() {
+func (o Opts) validate() {
 	if o.MaxWorkers <= 0 {
 		panic("task queue max workers must be greater than 0")
 	}

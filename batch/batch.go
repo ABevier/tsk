@@ -1,3 +1,5 @@
+// Package batch provides a batch executor implementation that allows for multiple writers
+// to submit tasks which will be batched and flushed based on configurable values.
 package batch
 
 import (
@@ -10,6 +12,23 @@ import (
 	"github.com/abevier/tsk/results"
 )
 
+// RunBatchFunction is a function that handles a flushed batch of task items.
+// Each time the batch executor flushes a batch, a slice of these task is provided
+// to a function with this signature.
+//
+// This function must return a slice of results.Result of equal size to the number of
+// tasks passed in. Each result in the returned slice should correspond to the task with
+// the same index.
+//
+// An example implementation that simply squares each number in the batch and returns them:
+//   func myBatchHandler(tasks []int) ([]results.Result[int], error) {
+//     var res []results.Result[int]
+//     for _, n := range tasks {
+//		   res = append(res, results.Success(n * n))
+//     }
+//     return res, nil
+//   }
+// If the RunBatchFunction returns an error every item in the batch will complete with that error.
 type RunBatchFunction[T any, R any] func(tasks []T) ([]results.Result[R], error)
 
 type batch[T any, R any] struct {
@@ -24,6 +43,10 @@ func (b *batch[T, R]) add(task T, future *futures.Future[R]) int {
 	return len(b.tasks)
 }
 
+// BatchExecutor batches values of type T submited via multiple producers and invokes the provided run function
+// when a batch flushes either due to size or a timeout.  Results of type R are returned to the caller of Submit
+// when the batch finishes execution.
+// A BatchExecutor must be created by calling New
 type BatchExecutor[T any, R any] struct {
 	maxSize   int
 	maxLinger time.Duration
@@ -31,7 +54,9 @@ type BatchExecutor[T any, R any] struct {
 	run       RunBatchFunction[T, R]
 }
 
-func NewExecutor[T any, R any](opts BatchOpts, run RunBatchFunction[T, R]) *BatchExecutor[T, R] {
+// NewExecutor creates a new BatchExecutor with the specified options that invokes the provided run function
+// when a batch of items flushes due to either size or time.
+func NewExecutor[T any, R any](opts Opts, run RunBatchFunction[T, R]) *BatchExecutor[T, R] {
 	be := &BatchExecutor[T, R]{
 		maxSize:   opts.MaxSize,
 		maxLinger: opts.MaxLinger,
@@ -44,11 +69,15 @@ func NewExecutor[T any, R any](opts BatchOpts, run RunBatchFunction[T, R]) *Batc
 	return be
 }
 
+// Submit adds an item to a batch and then blocks until the batch has been processed and a result
+// has been returned.
 func (be *BatchExecutor[T, R]) Submit(ctx context.Context, task T) (R, error) {
 	f := be.SubmitF(task)
 	return f.Get(ctx)
 }
 
+// SubmitF adds an item to a batch without blocking and then returns a futures.Future that will
+// contain the result of the batch computation when it is completed
 func (be *BatchExecutor[T, R]) SubmitF(task T) *futures.Future[R] {
 	future := futures.New[R]()
 	be.taskChan <- tsk.TaskFuture[T, R]{Task: task, Future: future}
@@ -131,7 +160,8 @@ func (be *BatchExecutor[T, R]) runBatch(b *batch[T, R]) {
 	}
 }
 
-// WARNING If this is called twice or Submit is called after calling Close it will panic
+// Close closes the BatchExecutor's underlying channel.  It is the responsibility of the caller to ensure
+// that no writers are still calling Submit or SubmitF as this will cause a panic.
 func (be *BatchExecutor[T, R]) Close() {
 	close(be.taskChan)
 }

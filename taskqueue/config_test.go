@@ -13,9 +13,9 @@ func TestConfig(t *testing.T) {
 		f()
 	}
 
-	opts := TaskQueueOpts{MaxWorkers: 0, MaxQueueDepth: 10}
+	opts := Opts{MaxWorkers: 0, MaxQueueDepth: 10}
 	failIfNoPanic(opts.validate)
 
-	opts = TaskQueueOpts{MaxWorkers: 3, MaxQueueDepth: -1}
+	opts = Opts{MaxWorkers: 3, MaxQueueDepth: -1}
 	failIfNoPanic(opts.validate)
 }

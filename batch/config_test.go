@@ -16,9 +16,9 @@ func TestConfig(t *testing.T) {
 		f()
 	}
 
-	opts := BatchOpts{MaxSize: 1, MaxLinger: 10 * time.Millisecond}
+	opts := Opts{MaxSize: 1, MaxLinger: 10 * time.Millisecond}
 	failIfNoPanic(opts.validate)
 
-	opts = BatchOpts{MaxSize: 3}
+	opts = Opts{MaxSize: 3}
 	failIfNoPanic(opts.validate)
 }
