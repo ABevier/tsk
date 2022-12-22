@@ -112,7 +112,7 @@ A common use case for this is batching multiple http requests that wish to write
 to the database.  Another common use is multiple http requests that should publish a message to AWS SQS which allows 
 for batching of up to 10 messages in a single request.
 
-** Batch Example **
+**Batch Example**
 ```go
 be := batch.New(batch.Opts{MaxSize: 10, MaxLinger:250 * time.Millisecond}, runBatch)
 
@@ -162,7 +162,7 @@ func main() {
 The ratelimiter package provides a rate limiter that utilizes the Token Bucket algorithm to limit the rate that
 a function will be invoked.  A common use case is to prevent a service from overwhelming other systems.
 
-** Rate Limiter Example **
+**Rate Limiter Example**
 ```go
 opts := ratelimiter.Opts{
   Limit: 10,
@@ -207,7 +207,7 @@ func main() {
 The taskqueue package provides a task queue that schedules work on a pool of goroutines. It is used to limit concurrent
 invocations to a function.  Much like a rate limiter a common use case is to prevent overwhelming other services.
 
-*** Task Queue Example ***
+**Task Queue Example**
 ```go
 opts := taskqueue.Opts{
   MaxWorkers: 3,
