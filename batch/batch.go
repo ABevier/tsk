@@ -1,5 +1,18 @@
 // Package batch provides a batch executor implementation that allows for multiple writers
 // to submit tasks which will be batched and flushed based on configurable values.
+//
+// An example implementation that simply squares each number in the batch and returns them:
+//   var runBatch := func (tasks []int) ([]results.Result[int], error) {
+//     var res []results.Result[int]
+//     for _, n := range tasks {
+//		   res = append(res, results.Success(n * n))
+//     }
+//     return res, nil
+//   }
+//   be := batch.New(batch.Opts{ MaxSize: 10, MaxLinger: 250 * time.Milliseconds }, runBatch)
+//
+// The above example flushes the batch when 10 items are in the batch OR after the oldest item in
+// the batch is 250ms old.
 package batch
 
 import (
@@ -18,16 +31,8 @@ import (
 //
 // This function must return a slice of results.Result of equal size to the number of
 // tasks passed in. Each result in the returned slice should correspond to the task with
-// the same index.
+// the same index i.e. the returned result at index i corresponds to the provided task at index i.
 //
-// An example implementation that simply squares each number in the batch and returns them:
-//   func myBatchHandler(tasks []int) ([]results.Result[int], error) {
-//     var res []results.Result[int]
-//     for _, n := range tasks {
-//		   res = append(res, results.Success(n * n))
-//     }
-//     return res, nil
-//   }
 // If the RunBatchFunction returns an error every item in the batch will complete with that error.
 type RunBatchFunction[T any, R any] func(tasks []T) ([]results.Result[R], error)
 
@@ -54,9 +59,9 @@ type BatchExecutor[T any, R any] struct {
 	run       RunBatchFunction[T, R]
 }
 
-// NewExecutor creates a new BatchExecutor with the specified options that invokes the provided run function
+// New creates a new BatchExecutor with the specified options that invokes the provided run function
 // when a batch of items flushes due to either size or time.
-func NewExecutor[T any, R any](opts Opts, run RunBatchFunction[T, R]) *BatchExecutor[T, R] {
+func New[T any, R any](opts Opts, run RunBatchFunction[T, R]) *BatchExecutor[T, R] {
 	be := &BatchExecutor[T, R]{
 		maxSize:   opts.MaxSize,
 		maxLinger: opts.MaxLinger,

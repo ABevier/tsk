@@ -20,6 +20,10 @@ import (
 type RunFunction[T any, R any] func(ctx context.Context, task T) (R, error)
 
 // RateLimiter limits the number of calls to the provided function based on the configured limit and burst values.
+// Submit calls to the RateLimiter are queued until they can be drained based on the Limiter's configuration.
+// Submitted tasks are queued until the MaxQueueDepth is reached.  Once the MaxQueueDepth is exceeded the behavior
+// is determined by the FullQueueBehavior.  Either the call to submit will be blocked OR a ErrQueueFull will be returned
+// immedieately.
 // A RateLimiter must be created by calling New
 type RateLimiter[T any, R any] struct {
 	limiter  *rate.Limiter
@@ -79,7 +83,11 @@ func (rl *RateLimiter[T, R]) Submit(ctx context.Context, task T) (R, error) {
 }
 
 // SubmitF adds a task to the rate limiter and returns a futures.Future once the task has been successfully added.
-// The returned future will contain the result of the run function once the function has been invoked and returns a value
+// The returned future will contain the result of the run function once the function has been invoked and returns a value.
+//
+// Note that if a call to this funtion would cause MaxQueueDepth to be exceeded then depending on the configured
+// FullQueueBehavior it will either block until the queue can accept the task OR this function wil immediately
+// return a failed future with an ErrQueueFull.
 func (rl *RateLimiter[T, R]) SubmitF(ctx context.Context, task T) *futures.Future[R] {
 	tf := tsk.NewTaskFuture[T, R](ctx, task)
 	if err := rl.submit(rl.taskChan, tf); err != nil {

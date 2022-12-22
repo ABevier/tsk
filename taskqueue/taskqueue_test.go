@@ -22,7 +22,7 @@ func TestTaskQueue(t *testing.T) {
 		return task * 2, nil
 	}
 
-	tq := NewTaskQueue(Opts{MaxWorkers: maxWorkers, MaxQueueDepth: 10}, run)
+	tq := New(Opts{MaxWorkers: maxWorkers, MaxQueueDepth: 10}, run)
 
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
@@ -47,7 +47,7 @@ func TestTaskQueueContextCancellation(t *testing.T) {
 		return 0, context.Canceled
 	}
 
-	tq := NewTaskQueue(Opts{MaxWorkers: 3, MaxQueueDepth: 10, FullQueueStrategy: BlockWhenFull}, run)
+	tq := New(Opts{MaxWorkers: 3, MaxQueueDepth: 10, FullQueueStrategy: BlockWhenFull}, run)
 
 	for i := 0; i < 10; i++ {
 		ctx, cancel := context.WithCancel(context.Background())

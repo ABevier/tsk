@@ -38,7 +38,7 @@ func TestBatch(t *testing.T) {
 		return rs, nil
 	}
 
-	be := NewExecutor(Opts{MaxSize: 3, MaxLinger: 10 * time.Millisecond}, run)
+	be := New(Opts{MaxSize: 3, MaxLinger: 10 * time.Millisecond}, run)
 
 	for i := 0; i < itemCount; i++ {
 		wg.Add(1)
@@ -72,7 +72,7 @@ func TestBatchFailure(t *testing.T) {
 		return nil, ErrTest
 	}
 
-	be := NewExecutor(Opts{MaxSize: 3, MaxLinger: 10 * time.Millisecond}, run)
+	be := New(Opts{MaxSize: 3, MaxLinger: 10 * time.Millisecond}, run)
 
 	for i := 0; i < itemCount; i++ {
 		wg.Add(1)
@@ -98,7 +98,7 @@ func TestSubmitCancellation(t *testing.T) {
 		return rs, nil
 	}
 
-	be := NewExecutor(Opts{MaxSize: 3, MaxLinger: math.MaxInt64}, run)
+	be := New(Opts{MaxSize: 3, MaxLinger: math.MaxInt64}, run)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel the context before submitting
@@ -118,7 +118,7 @@ func TestBadRunFunction(t *testing.T) {
 		return []results.Result[int]{}, nil
 	}
 
-	be := NewExecutor(Opts{MaxSize: 3, MaxLinger: 10 * time.Millisecond}, run)
+	be := New(Opts{MaxSize: 3, MaxLinger: 10 * time.Millisecond}, run)
 
 	for i := 0; i < 3; i++ {
 		wg.Add(1)
