@@ -214,7 +214,7 @@ opts := taskqueue.Opts{
   MaxQueueDepth: 100,
   FullQueueStategy: ratelimiter.ErrorWhenFull,
 }
-rl := taskqueue.New(opts, do)
+tq := taskqueue.New(opts, do)
 
 // This function will never be invoked more than 3 times concurrently while behind the TaskQueue
 func do(ctx context.Context, request string) (string, error) {
@@ -229,7 +229,7 @@ func requestHandler(w http.ResponseWriter, req *http.Request) {
   // Each call to submit will block until the concurrency limited function is invoked and returns a result.
   // If the number pending request is too high ErrQueueFull is returned and the server will respond 
   // to the request with an HTTP 429
-  resp, err := rl.Submit(req.Context(), event)
+  resp, err := tq.Submit(req.Context(), event)
   if err != nil {
     if errors.Is(err, taskqueue.ErrQueueFull) {
       w.WriteHeader(http.StatusTooManyRequests)
