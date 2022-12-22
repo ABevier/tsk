@@ -212,7 +212,7 @@ invocations to a function.  Much like a rate limiter a common use case is to pre
 opts := taskqueue.Opts{
   MaxWorkers: 3,
   MaxQueueDepth: 100,
-  FullQueueStategy: ratelimiter.ErrorWhenFull,
+  FullQueueStategy: taskqueue.ErrorWhenFull,
 }
 tq := taskqueue.New(opts, do)
 
