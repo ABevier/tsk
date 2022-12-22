@@ -4,6 +4,8 @@ Tsk is a Go library for handling generic concurrent tasks.
 
 It provides multiple packages that each implement a single pattern.
 
+`go get -u github.com/abevier/tsk`
+
 ## Packages
 - [futures](#futures)
 - [batch](#batch)
