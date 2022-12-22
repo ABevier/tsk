@@ -5,13 +5,10 @@ Tsk is a Go library for handling generic concurrent tasks.
 It provides multiple packages that each implement a single pattern.
 
 ## Packages
-- [tsk](#tsk)
-  - [Packages](#packages)
-    - [futures](#futures)
-    - [batch](#batch)
-    - [ratelimiter](#ratelimiter)
-    - [taskqueue](#taskqueue)
-  - [Motivation](#motivation)
+- [futures](#futures)
+- [batch](#batch)
+- [ratelimiter](#ratelimiter)
+- [taskqueue](#taskqueue)
 
 ### futures
 The futures package provides a wrapper around an asynchronous computation.  
