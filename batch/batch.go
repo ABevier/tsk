@@ -2,14 +2,15 @@
 // to submit tasks which will be batched and flushed based on configurable values.
 //
 // An example implementation that simply squares each number in the batch and returns them:
-//   var runBatch := func (tasks []int) ([]results.Result[int], error) {
-//     var res []results.Result[int]
-//     for _, n := range tasks {
-//		   res = append(res, results.Success(n * n))
-//     }
-//     return res, nil
-//   }
-//   be := batch.New(batch.Opts{ MaxSize: 10, MaxLinger: 250 * time.Milliseconds }, runBatch)
+//
+//	  var runBatch := func (tasks []int) ([]results.Result[int], error) {
+//	    var res []results.Result[int]
+//	    for _, n := range tasks {
+//			   res = append(res, results.Success(n * n))
+//	    }
+//	    return res, nil
+//	  }
+//	  be := batch.New(batch.Opts{ MaxSize: 10, MaxLinger: 250 * time.Milliseconds }, runBatch)
 //
 // The above example flushes the batch when 10 items are in the batch OR after the oldest item in
 // the batch is 250ms old.
@@ -37,7 +38,6 @@ import (
 type RunBatchFunction[T any, R any] func(tasks []T) ([]results.Result[R], error)
 
 type batch[T any, R any] struct {
-	id      int
 	tasks   []T
 	futures []*futures.Future[R]
 }
@@ -101,8 +101,8 @@ func (be *BatchExecutor[T, R]) startWorker(taskChan <-chan tsk.TaskFuture[T, R])
 				if currentBatch != nil {
 					go be.runBatch(currentBatch)
 					currentBatch = nil
-					t.Reset(be.maxLinger)
 				}
+				t.Reset(math.MaxInt64)
 
 			case ft, ok := <-taskChan:
 				if !ok {

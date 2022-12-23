@@ -132,3 +132,45 @@ func TestBadRunFunction(t *testing.T) {
 	wg.Wait()
 	be.Close()
 }
+
+func TestBatchMutlipleExpirations(t *testing.T) {
+	require := require.New(t)
+
+	loopCount := 10
+	itemCount := 10
+	var processedCount uint32 = 0
+
+	run := func(items []int) ([]results.Result[int], error) {
+		var rs []results.Result[int]
+		for _, n := range items {
+			rs = append(rs, results.Success(n*n))
+			atomic.AddUint32(&processedCount, 1)
+		}
+		return rs, nil
+	}
+	be := New(Opts{MaxSize: 11, MaxLinger: 1 * time.Millisecond}, run)
+
+	for i := 0; i < loopCount; i++ {
+		if i > 0 {
+			time.Sleep(10 * time.Millisecond)
+		}
+		wg := sync.WaitGroup{}
+
+		for i := 0; i < itemCount; i++ {
+			wg.Add(1)
+
+			go func(n int) {
+				defer wg.Done()
+				res, err := be.Submit(context.TODO(), n)
+				require.NoError(err)
+				require.Equal(n*n, res)
+			}(i)
+		}
+		wg.Wait()
+
+	}
+
+	be.Close()
+
+	require.Equal(itemCount*loopCount, int(processedCount))
+}
