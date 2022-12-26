@@ -14,7 +14,7 @@ import (
 var ErrTest = errors.New("unit test error")
 
 func TestRateLimiter(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	wg := sync.WaitGroup{}
 
@@ -34,11 +34,11 @@ func TestRateLimiter(t *testing.T) {
 
 			r, err := rl.Submit(context.Background(), n)
 			if n == 5 {
-				require.ErrorIs(err, ErrTest)
+				req.ErrorIs(err, ErrTest)
 				return
 			}
-			require.NoError(err)
-			require.Equal(n*2, r)
+			req.NoError(err)
+			req.Equal(n*2, r)
 		}(i)
 	}
 
@@ -47,7 +47,7 @@ func TestRateLimiter(t *testing.T) {
 }
 
 func TestRateLimiterDeadlineError(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	var errCount int32
 	var successCount int32
@@ -82,6 +82,6 @@ func TestRateLimiterDeadlineError(t *testing.T) {
 	wg.Wait()
 	rl.Close()
 
-	require.Equal(1, int(successCount))
-	require.Equal(4, int(errCount))
+	req.Equal(1, int(successCount))
+	req.Equal(4, int(errCount))
 }

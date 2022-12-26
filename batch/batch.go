@@ -48,7 +48,7 @@ func (b *batch[T, R]) add(task T, future *futures.Future[R]) int {
 	return len(b.tasks)
 }
 
-// BatchExecutor batches values of type T submited via multiple producers and invokes the provided run function
+// BatchExecutor batches values of type T submitted via multiple producers and invokes the provided run function
 // when a batch flushes either due to size or a timeout.  Results of type R are returned to the caller of Submit
 // when the batch finishes execution.
 // A BatchExecutor must be created by calling New

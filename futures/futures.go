@@ -18,7 +18,7 @@ var (
 type FutureFunc[T any] func() (T, error)
 
 // Future is a structure that represents an asynchronous computation.
-// A Future should be created by calling New() or using the FromFunc convience function.
+// A Future should be created by calling New() or using the FromFunc convenience function.
 // Once a future has been created it can be completed exactly once.  The first completion value
 // wins and all other completions are silently ignored.
 //

@@ -16,7 +16,7 @@ import (
 var ErrTest = errors.New("unit test error")
 
 func TestBatch(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	var actualCount uint32 = 0
 	itemCount := 10
@@ -48,22 +48,22 @@ func TestBatch(t *testing.T) {
 
 			res, err := be.Submit(context.TODO(), n)
 			if n == 5 {
-				require.ErrorIs(err, ErrTest)
+				req.ErrorIs(err, ErrTest)
 				return
 			}
-			require.NoError(err)
-			require.Equal(2*n, res)
+			req.NoError(err)
+			req.Equal(2*n, res)
 		}(i)
 	}
 
 	wg.Wait()
 	be.Close()
 
-	require.Equal(itemCount, int(actualCount))
+	req.Equal(itemCount, int(actualCount))
 }
 
 func TestBatchFailure(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	itemCount := 10
 	wg := sync.WaitGroup{}
@@ -78,7 +78,7 @@ func TestBatchFailure(t *testing.T) {
 		wg.Add(1)
 		go func(val int) {
 			_, err := be.Submit(context.TODO(), val)
-			require.ErrorIs(err, ErrTest)
+			req.ErrorIs(err, ErrTest)
 			wg.Done()
 		}(i)
 	}
@@ -88,7 +88,7 @@ func TestBatchFailure(t *testing.T) {
 }
 
 func TestSubmitCancellation(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	run := func(items []int) ([]results.Result[int], error) {
 		var rs []results.Result[int]
@@ -104,13 +104,13 @@ func TestSubmitCancellation(t *testing.T) {
 	cancel() // cancel the context before submitting
 
 	_, err := be.Submit(ctx, 5)
-	require.ErrorIs(err, context.Canceled)
+	req.ErrorIs(err, context.Canceled)
 
 	be.Close()
 }
 
 func TestBadRunFunction(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	wg := sync.WaitGroup{}
 
@@ -124,7 +124,7 @@ func TestBadRunFunction(t *testing.T) {
 		wg.Add(1)
 		go func(n int) {
 			_, err := be.Submit(context.Background(), n)
-			require.ErrorIs(err, ErrBatchResultMismatch)
+			req.ErrorIs(err, ErrBatchResultMismatch)
 			wg.Done()
 		}(i)
 	}
@@ -133,8 +133,8 @@ func TestBadRunFunction(t *testing.T) {
 	be.Close()
 }
 
-func TestBatchMutlipleExpirations(t *testing.T) {
-	require := require.New(t)
+func TestBatchMultipleExpirations(t *testing.T) {
+	req := require.New(t)
 
 	loopCount := 10
 	itemCount := 10
@@ -162,8 +162,8 @@ func TestBatchMutlipleExpirations(t *testing.T) {
 			go func(n int) {
 				defer wg.Done()
 				res, err := be.Submit(context.TODO(), n)
-				require.NoError(err)
-				require.Equal(n*n, res)
+				req.NoError(err)
+				req.Equal(n*n, res)
 			}(i)
 		}
 		wg.Wait()
@@ -172,5 +172,5 @@ func TestBatchMutlipleExpirations(t *testing.T) {
 
 	be.Close()
 
-	require.Equal(itemCount*loopCount, int(processedCount))
+	req.Equal(itemCount*loopCount, int(processedCount))
 }

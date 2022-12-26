@@ -9,13 +9,13 @@ import (
 )
 
 func TestGetSubmitFunction(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	f := GetSubmitFunction[int, int](BlockWhenFull)
-	require.NotNil(f)
+	req.NotNil(f)
 
 	f = GetSubmitFunction[int, int](ErrorWhenFull)
-	require.NotNil(f)
+	req.NotNil(f)
 }
 
 func TestGetSubmitFunctionPanic(t *testing.T) {
@@ -29,7 +29,7 @@ func TestGetSubmitFunctionPanic(t *testing.T) {
 }
 
 func TestBlockWhenFullStrategy(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	c := make(chan TaskFuture[int, int])
 
@@ -39,7 +39,7 @@ func TestBlockWhenFullStrategy(t *testing.T) {
 
 	tf := NewTaskFuture[int, int](ctx, 1)
 	err := blockWhenFullStrategy(c, tf)
-	require.ErrorIs(context.Canceled, err)
+	req.ErrorIs(context.Canceled, err)
 
 	// Test consumption
 	wg := sync.WaitGroup{}
@@ -61,18 +61,18 @@ func TestBlockWhenFullStrategy(t *testing.T) {
 	tf = NewTaskFuture[int, int](ctx, 1)
 
 	err = blockWhenFullStrategy(c, tf)
-	require.NoError(err)
+	req.NoError(err)
 
 	v, err := tf.Future.Get(ctx)
-	require.NoError(err)
-	require.Equal(42, v)
+	req.NoError(err)
+	req.Equal(42, v)
 
 	close(c)
 	wg.Wait()
 }
 
 func TestErrorWhenFull(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	c := make(chan TaskFuture[int, int])
 
@@ -102,8 +102,8 @@ func TestErrorWhenFull(t *testing.T) {
 				startConsumer()
 			} else {
 				v, err := tf.Future.Get(ctx)
-				require.NoError(err)
-				require.Equal(42, v)
+				req.NoError(err)
+				req.Equal(42, v)
 			}
 		}()
 	}

@@ -12,17 +12,17 @@ var (
 	ErrQueueFull = tsk.ErrQueueFull
 )
 
-// FullQueueStategy is the type of behavior that should occcur when too many items are submitted to the rate limiter
+// FullQueueStrategy is the type of behavior that should occur when too many items are submitted to the rate limiter
 type FullQueueStrategy tsk.FullQueueStrategy
 
 const (
 	// BlockWhenFull exerts back pressure by blocking the caller when too many items have been submitted.
-	BlockWhenFull FullQueueStrategy = FullQueueStrategy(tsk.BlockWhenFull)
+	BlockWhenFull = FullQueueStrategy(tsk.BlockWhenFull)
 	// ErrorWhenFull immediately returns an error when too many items have been submitted.
-	ErrorWhenFull FullQueueStrategy = FullQueueStrategy(tsk.ErrorWhenFull)
+	ErrorWhenFull = FullQueueStrategy(tsk.ErrorWhenFull)
 )
 
-// A rate limit expressed as N requests per second
+// Limit is a rate limit expressed as N requests per second
 type Limit = rate.Limit
 
 // Every converts the provided duration into a number of requests per second
@@ -39,7 +39,7 @@ type Opts struct {
 	Burst int
 	// MaxQueueDepth controls the maximum number of outstanding tasks that can be submitted to the rate limiter.
 	MaxQueueDepth int
-	// FullQueueStategy determines the rate limiter's behavior when the MaxQueueDepth is exceeded.
+	// FullQueueStrategy determines the rate limiter's behavior when the MaxQueueDepth is exceeded.
 	// By default the rate limiter will block the caller.
 	FullQueueStrategy FullQueueStrategy
 }

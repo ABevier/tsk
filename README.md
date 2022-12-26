@@ -15,7 +15,7 @@ It provides multiple packages that each implement a single pattern.
 ### futures
 The futures package provides a wrapper around an asynchronous computation.  
 
-A channel and a goroutine are often used to acheive the same result, but there are differences.  
+A channel and a goroutine are often used to achieve the same result, but there are differences.  
 - A Future can be read by any number of go routines, a channel only provides the value once
 - A Future can be safely completed multiple times: only the first completion is used,
   subsequent completions are ignored silently, a channel will panic if written to when
@@ -107,7 +107,7 @@ func main() {
 ```
 
 ### batch
-The batch package provides a batch executor implemenation that allows multiple go routines to seamlessly batch tasks
+The batch package provides a batch executor implementation that allows multiple go routines to seamlessly batch tasks
 which are then flushed to a user defined executor function. 
 
 A common use case for this is batching multiple http requests that wish to write to a database into a single update 
@@ -251,7 +251,7 @@ func main() {
 
 ## Motivation
 I wrote this library because I found that I was repeating these patterns in multiple places.  My preference is to
-keep application business logic and task plumbing logic seperate when at all possible.  This means I try to avoid
-exposing channels and other concurreny primitives to business services.  Many concurrency bugs I've encountered in 
+keep application business logic and task plumbing logic separate when at all possible.  This means I try to avoid
+exposing channels and other concurrency primitives to business services.  Many concurrency bugs I've encountered in 
 Go have been due to improperly sending/receiving to unbuffered channels and forgetting to cancel when a context is
 cancelled. 

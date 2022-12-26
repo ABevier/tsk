@@ -14,7 +14,7 @@ var (
 )
 
 func TestFuture(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	f := New[int]()
 
@@ -26,12 +26,12 @@ func TestFuture(t *testing.T) {
 	}()
 
 	v, err := f.Get(context.Background())
-	require.NoError(err)
-	require.Equal(1, v)
+	req.NoError(err)
+	req.Equal(1, v)
 }
 
 func TestFromFunc(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	f := FromFunc(func() (int, error) {
 		time.Sleep(10 * time.Millisecond)
@@ -39,8 +39,8 @@ func TestFromFunc(t *testing.T) {
 	})
 
 	r, err := f.Get(context.Background())
-	require.NoError(err)
-	require.Equal(42, r)
+	req.NoError(err)
+	req.Equal(42, r)
 
 	f = FromFunc(func() (int, error) {
 		time.Sleep(10 * time.Millisecond)
@@ -48,11 +48,11 @@ func TestFromFunc(t *testing.T) {
 	})
 
 	r, err = f.Get(context.Background())
-	require.ErrorIs(err, ErrTest)
+	req.ErrorIs(err, ErrTest)
 }
 
 func TestComplete(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	f := New[int]()
 
@@ -63,12 +63,12 @@ func TestComplete(t *testing.T) {
 	}
 
 	v, err := f.Get(context.Background())
-	require.NoError(err)
-	require.Equal(42, v)
+	req.NoError(err)
+	req.Equal(42, v)
 }
 
 func TestCancel(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	f := New[int]()
 
@@ -80,11 +80,11 @@ func TestCancel(t *testing.T) {
 	}
 
 	_, err := f.Get(context.Background())
-	require.ErrorIs(err, ErrCanceled)
+	req.ErrorIs(err, ErrCanceled)
 }
 
 func TestFail(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	f := New[int]()
 
@@ -96,11 +96,11 @@ func TestFail(t *testing.T) {
 	}
 
 	_, err := f.Get(context.Background())
-	require.ErrorIs(err, ErrTest)
+	req.ErrorIs(err, ErrTest)
 }
 
 func TestCancelOnGet(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	f := New[int]()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -111,5 +111,5 @@ func TestCancelOnGet(t *testing.T) {
 	}()
 
 	_, err := f.Get(ctx)
-	require.ErrorIs(err, context.Canceled)
+	req.ErrorIs(err, context.Canceled)
 }
