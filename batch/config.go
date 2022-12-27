@@ -10,7 +10,7 @@ var (
 	ErrBatchResultMismatch = errors.New("the batch function did not return the correct number of responses")
 )
 
-// Opts is used to configure a BatchExecutor via the NewExecutor function.
+// Opts is used to configure a Executor via the NewExecutor function.
 type Opts struct {
 	// MaxSize is the maximum batch size allowed before a batch is flushed for processing.  It must be greater than 1.
 	MaxSize int

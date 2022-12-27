@@ -48,21 +48,21 @@ func (b *batch[T, R]) add(task T, future *futures.Future[R]) int {
 	return len(b.tasks)
 }
 
-// BatchExecutor batches values of type T submitted via multiple producers and invokes the provided run function
+// Executor batches values of type T submitted via multiple producers and invokes the provided run function
 // when a batch flushes either due to size or a timeout.  Results of type R are returned to the caller of Submit
 // when the batch finishes execution.
-// A BatchExecutor must be created by calling New
-type BatchExecutor[T any, R any] struct {
+// A Executor must be created by calling New
+type Executor[T any, R any] struct {
 	maxSize   int
 	maxLinger time.Duration
 	taskChan  chan tsk.TaskFuture[T, R]
 	run       RunBatchFunction[T, R]
 }
 
-// New creates a new BatchExecutor with the specified options that invokes the provided run function
+// New creates a new Executor with the specified options that invokes the provided run function
 // when a batch of items flushes due to either size or time.
-func New[T any, R any](opts Opts, run RunBatchFunction[T, R]) *BatchExecutor[T, R] {
-	be := &BatchExecutor[T, R]{
+func New[T any, R any](opts Opts, run RunBatchFunction[T, R]) *Executor[T, R] {
+	be := &Executor[T, R]{
 		maxSize:   opts.MaxSize,
 		maxLinger: opts.MaxLinger,
 		taskChan:  make(chan tsk.TaskFuture[T, R]),
@@ -76,20 +76,20 @@ func New[T any, R any](opts Opts, run RunBatchFunction[T, R]) *BatchExecutor[T, 
 
 // Submit adds an item to a batch and then blocks until the batch has been processed and a result
 // has been returned.
-func (be *BatchExecutor[T, R]) Submit(ctx context.Context, task T) (R, error) {
+func (be *Executor[T, R]) Submit(ctx context.Context, task T) (R, error) {
 	f := be.SubmitF(task)
 	return f.Get(ctx)
 }
 
 // SubmitF adds an item to a batch without blocking and then returns a futures.Future that will
 // contain the result of the batch computation when it is completed
-func (be *BatchExecutor[T, R]) SubmitF(task T) *futures.Future[R] {
+func (be *Executor[T, R]) SubmitF(task T) *futures.Future[R] {
 	future := futures.New[R]()
 	be.taskChan <- tsk.TaskFuture[T, R]{Task: task, Future: future}
 	return future
 }
 
-func (be *BatchExecutor[T, R]) startWorker(taskChan <-chan tsk.TaskFuture[T, R]) {
+func (be *Executor[T, R]) startWorker(taskChan <-chan tsk.TaskFuture[T, R]) {
 	go func() {
 		var currentBatch *batch[T, R]
 		t := time.NewTimer(math.MaxInt64)
@@ -140,7 +140,7 @@ func (be *BatchExecutor[T, R]) startWorker(taskChan <-chan tsk.TaskFuture[T, R])
 	}()
 }
 
-func (be *BatchExecutor[T, R]) runBatch(b *batch[T, R]) {
+func (be *Executor[T, R]) runBatch(b *batch[T, R]) {
 	res, err := be.run(b.tasks)
 	if err != nil {
 		for _, f := range b.futures {
@@ -165,8 +165,8 @@ func (be *BatchExecutor[T, R]) runBatch(b *batch[T, R]) {
 	}
 }
 
-// Close closes the BatchExecutor's underlying channel.  It is the responsibility of the caller to ensure
+// Close closes the Executor's underlying channel.  It is the responsibility of the caller to ensure
 // that no writers are still calling Submit or SubmitF as this will cause a panic.
-func (be *BatchExecutor[T, R]) Close() {
+func (be *Executor[T, R]) Close() {
 	close(be.taskChan)
 }
