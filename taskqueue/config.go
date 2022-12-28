@@ -9,14 +9,14 @@ var (
 	ErrQueueFull = tsk.ErrQueueFull
 )
 
-// FullQueueStategy is the type of behavior that should occcur when too many items are submitted to the TaskQueue
+// FullQueueStrategy is the type of behavior that should occur when too many items are submitted to the TaskQueue
 type FullQueueStrategy tsk.FullQueueStrategy
 
 const (
 	// BlockWhenFull exerts back pressure by blocking the caller when too many items have been submitted.
-	BlockWhenFull FullQueueStrategy = FullQueueStrategy(tsk.BlockWhenFull)
+	BlockWhenFull = FullQueueStrategy(tsk.BlockWhenFull)
 	// ErrorWhenFull immediately returns an error when too many items have been submitted.
-	ErrorWhenFull FullQueueStrategy = FullQueueStrategy(tsk.ErrorWhenFull)
+	ErrorWhenFull = FullQueueStrategy(tsk.ErrorWhenFull)
 )
 
 // Opts is used to configure a TaskQueue via the New function.
@@ -25,7 +25,7 @@ type Opts struct {
 	MaxWorkers int
 	// MaxQueueDepth controls the maximum number of outstanding tasks that can be submitted to the task queue.
 	MaxQueueDepth int
-	// FullQueueStategy determines the task queue's behavior when the MaxQueueDepth is exceeded.
+	// FullQueueStrategy determines the task queue's behavior when the MaxQueueDepth is exceeded.
 	// By default the rate limiter will block the caller.
 	FullQueueStrategy FullQueueStrategy
 }

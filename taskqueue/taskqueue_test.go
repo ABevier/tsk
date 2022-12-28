@@ -10,15 +10,15 @@ import (
 )
 
 func TestTaskQueue(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	maxWorkers := 3
 	wg := sync.WaitGroup{}
 
 	run := func(ctx context.Context, task int) (int, error) {
 		workerId, ok := WorkerIDFromContext(ctx)
-		require.True(ok)
-		require.True(isValidWorkerID(workerId, maxWorkers))
+		req.True(ok)
+		req.True(isValidWorkerID(workerId, maxWorkers))
 		return task * 2, nil
 	}
 
@@ -30,8 +30,8 @@ func TestTaskQueue(t *testing.T) {
 			defer wg.Done()
 
 			val, err := tq.Submit(context.Background(), n)
-			require.NoError(err)
-			require.Equal(n*2, val)
+			req.NoError(err)
+			req.Equal(n*2, val)
 		}(i)
 	}
 
@@ -40,7 +40,7 @@ func TestTaskQueue(t *testing.T) {
 }
 
 func TestTaskQueueContextCancellation(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	run := func(ctx context.Context, task int) (int, error) {
 		<-ctx.Done()
@@ -54,7 +54,7 @@ func TestTaskQueueContextCancellation(t *testing.T) {
 		cancel()
 
 		_, err := tq.Submit(ctx, i)
-		require.ErrorIs(err, context.Canceled)
+		req.ErrorIs(err, context.Canceled)
 	}
 }
 

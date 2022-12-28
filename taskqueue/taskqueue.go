@@ -22,7 +22,7 @@ type RunFunction[T any, R any] func(ctx context.Context, task T) (R, error)
 // TaskQueue is a concurrency limiter that controls the number of concurrent invocations of the
 // provided RunFunction.  Concurrent calls to Submit that exceed MaxWorkers will be queued up
 // to the MaxQueueDepth.  If the MaxQueueDepth is exceeded then the behavior is determined by
-// the cofigured FullQueueStrategy - the call to submit is either blocked or will immediately return
+// the configured FullQueueStrategy - the call to submit is either blocked or will immediately return
 // an error.
 // A TaskQueue must be created by calling New.
 type TaskQueue[T any, R any] struct {
@@ -74,10 +74,10 @@ func (tq *TaskQueue[T, R]) Submit(ctx context.Context, task T) (R, error) {
 	return f.Get(ctx)
 }
 
-// Submit adds a task to the TaskQueue and returns a futures.Future once the task has been successfully added.
+// SubmitF adds a task to the TaskQueue and returns a futures.Future once the task has been successfully added.
 // The returned future will contain the result of the run function once the function has been invoked and returns a value.
 //
-// Note that if a call to this funtion would cause MaxQueueDepth to be exceeded then depending on the configured
+// Note that if a call to this function would cause MaxQueueDepth to be exceeded then depending on the configured
 // FullQueueBehavior it will either block until the queue can accept the task OR this function wil immediately
 // return a failed future with an ErrQueueFull.
 func (tq *TaskQueue[T, R]) SubmitF(ctx context.Context, task T) *futures.Future[R] {

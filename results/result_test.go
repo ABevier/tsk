@@ -8,18 +8,18 @@ import (
 )
 
 func TestResult(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	r := New(1, nil)
-	require.Equal(1, r.Val)
-	require.NoError(r.Err)
+	req.Equal(1, r.Val)
+	req.NoError(r.Err)
 
 	r = Success(2)
-	require.Equal(2, r.Val)
-	require.NoError(r.Err)
+	req.Equal(2, r.Val)
+	req.NoError(r.Err)
 
 	errTest := errors.New("test err")
 	r = Failure[int](errTest)
-	require.Equal(0, r.Val)
-	require.ErrorIs(r.Err, errTest)
+	req.Equal(0, r.Val)
+	req.ErrorIs(r.Err, errTest)
 }

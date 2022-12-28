@@ -10,7 +10,7 @@ import (
 )
 
 func TestResolveAll(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	f1 := FromFunc(func() (int, error) {
 		time.Sleep(6 * time.Millisecond)
@@ -28,7 +28,7 @@ func TestResolveAll(t *testing.T) {
 	})
 
 	rs, err := ResolveAll(context.Background(), []*Future[int]{f1, f2, f3})
-	require.NoError(err)
+	req.NoError(err)
 
 	expected := []results.Result[int]{
 		results.Success(1),
@@ -36,11 +36,11 @@ func TestResolveAll(t *testing.T) {
 		results.Success(3),
 	}
 
-	require.Equal(expected, rs)
+	req.Equal(expected, rs)
 }
 
 func TestResolveAllCancellation(t *testing.T) {
-	require := require.New(t)
+	req := require.New(t)
 
 	f1 := New[int]()
 	f2 := New[int]()
@@ -54,5 +54,5 @@ func TestResolveAllCancellation(t *testing.T) {
 	}()
 
 	_, err := ResolveAll(ctx, []*Future[int]{f1, f2, f3})
-	require.ErrorIs(err, context.Canceled)
+	req.ErrorIs(err, context.Canceled)
 }
