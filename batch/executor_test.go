@@ -174,3 +174,53 @@ func TestBatchMultipleExpirations(t *testing.T) {
 
 	req.Equal(itemCount*loopCount, int(processedCount))
 }
+
+func TestBatchMultipleFlushes(t *testing.T) {
+	req := require.New(t)
+
+	loopCount := 10
+	itemCount := 5
+	var processedCount uint32 = 0
+
+	run := func(items []int) ([]results.Result[int], error) {
+		var rs []results.Result[int]
+		for _, n := range items {
+			rs = append(rs, results.Success(n*n))
+			atomic.AddUint32(&processedCount, 1)
+		}
+		return rs, nil
+	}
+	// batch will never fill up or expire - only a flush can clear it
+	be := New(Opts{MaxSize: 100, MaxLinger: math.MaxInt64}, run)
+
+	for i := 0; i < loopCount; i++ {
+		wg := sync.WaitGroup{}
+
+		for i := 0; i < itemCount; i++ {
+			wg.Add(1)
+
+			go func(n int) {
+				defer wg.Done()
+				res, err := be.Submit(context.TODO(), n)
+				req.NoError(err)
+				req.Equal(n*n, res)
+			}(i)
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// wait for the batch to be created and partially filled up before flushing it
+			time.Sleep(10 * time.Millisecond)
+			be.Flush()
+		}()
+
+		wg.Wait()
+
+		req.Equal(itemCount*(i+1), int(processedCount))
+	}
+
+	be.Close()
+
+	req.Equal(itemCount*loopCount, int(processedCount))
+}
