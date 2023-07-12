@@ -56,6 +56,7 @@ type Executor[T any, R any] struct {
 	maxSize   int
 	maxLinger time.Duration
 	taskChan  chan tsk.TaskFuture[T, R]
+	flushChan chan struct{}
 	run       RunBatchFunction[T, R]
 }
 
@@ -66,10 +67,11 @@ func New[T any, R any](opts Opts, run RunBatchFunction[T, R]) *Executor[T, R] {
 		maxSize:   opts.MaxSize,
 		maxLinger: opts.MaxLinger,
 		taskChan:  make(chan tsk.TaskFuture[T, R]),
+		flushChan: make(chan struct{}),
 		run:       run,
 	}
 
-	be.startWorker(be.taskChan)
+	be.startWorker()
 
 	return be
 }
@@ -89,7 +91,7 @@ func (be *Executor[T, R]) SubmitF(task T) *futures.Future[R] {
 	return future
 }
 
-func (be *Executor[T, R]) startWorker(taskChan <-chan tsk.TaskFuture[T, R]) {
+func (be *Executor[T, R]) startWorker() {
 	go func() {
 		var currentBatch *batch[T, R]
 		t := time.NewTimer(math.MaxInt64)
@@ -104,7 +106,26 @@ func (be *Executor[T, R]) startWorker(taskChan <-chan tsk.TaskFuture[T, R]) {
 				}
 				t.Reset(math.MaxInt64)
 
-			case ft, ok := <-taskChan:
+			case _, ok := <-be.flushChan:
+				if !ok {
+					if !t.Stop() {
+						<-t.C
+					}
+					return
+				}
+
+				// batch flushed explicitly
+				if currentBatch != nil {
+					go be.runBatch(currentBatch)
+					currentBatch = nil
+
+					if !t.Stop() {
+						<-t.C
+					}
+					t.Reset(math.MaxInt64)
+				}
+
+			case ft, ok := <-be.taskChan:
 				if !ok {
 					if !t.Stop() {
 						<-t.C
@@ -165,8 +186,13 @@ func (be *Executor[T, R]) runBatch(b *batch[T, R]) {
 	}
 }
 
+func (be *Executor[T, R]) Flush() {
+	be.flushChan <- struct{}{}
+}
+
 // Close closes the Executor's underlying channel.  It is the responsibility of the caller to ensure
 // that no writers are still calling Submit or SubmitF as this will cause a panic.
 func (be *Executor[T, R]) Close() {
 	close(be.taskChan)
+	close(be.flushChan)
 }
